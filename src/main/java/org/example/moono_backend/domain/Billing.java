@@ -28,6 +28,8 @@ public class Billing {
     @Enumerated(EnumType.STRING)
     private PayStatus status;
 
+    private SendStatus sendYn;
+
     private YearMonth billingMonth;
 
     private LocalDateTime billDate;
