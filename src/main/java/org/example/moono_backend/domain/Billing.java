@@ -21,14 +21,17 @@ public class Billing {
 
     private Long memberId;
 
+    private Long subscriptionId;
+
     private Integer totalFee;
 
     @Enumerated(EnumType.STRING)
     private PayStatus status;
 
+    private YearMonth billingMonth;
+
     private LocalDateTime billDate;
 
     private LocalDateTime payDate;
-
 
 }
