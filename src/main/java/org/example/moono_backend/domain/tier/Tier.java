@@ -4,24 +4,24 @@ import jakarta.persistence.*;
 
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
-import org.example.moono_backend.domain.discountRule.PolicyType;
+
+import org.example.moono_backend.domain.BaseEntity;
+
 
 @Entity
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class TierPolicy {
+public class Tier extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private Long tierFeeRangeId;
-
     @Enumerated(EnumType.STRING)
-    private PolicyType policyType;
+    private TierName tierName;
 
+    private Integer minimumFee;
 
-
-
+    private Integer maximumFee;
 
 
 }

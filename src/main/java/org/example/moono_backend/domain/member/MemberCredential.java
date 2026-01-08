@@ -1,4 +1,4 @@
-package org.example.moono_backend.domain.discountRule;
+package org.example.moono_backend.domain.member;
 
 import jakarta.persistence.*;
 
@@ -7,18 +7,20 @@ import lombok.NoArgsConstructor;
 
 @Entity
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class FamilyDiscountRule {
+public class MemberCredential {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private Long tierPolicyId;
+    private Long memberId;
 
-    private Integer minimumFamilyCount;
+    private String email;
 
-    private Integer maximumFamilyCount;
+    private String phoneNumber;
 
-    private Integer discountAmount;
+    private String password;
+
+    private String address;
 
 }

@@ -1,6 +1,6 @@
 package org.example.moono_backend.domain;
 
-import jakarta.persistence.MappedSuperclass;
+import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
 @MappedSuperclass

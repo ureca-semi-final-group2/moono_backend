@@ -3,9 +3,8 @@ package org.example.moono_backend.domain;
 import jakarta.persistence.*;
 
 import lombok.AccessLevel;
-import lombok.NoArgsConstructor;
 
-import org.example.moono_backend.domain.tier.TierName;
+import lombok.NoArgsConstructor;
 
 
 @Entity
@@ -16,14 +15,13 @@ public class Plan extends BaseEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Enumerated(EnumType.STRING)
-    private TierName tierName;
+    private Long tierId;
 
     private String planName;
 
     private Integer baseFee;
 
-    private Double basicMobileData ;
+    private Double basicMobileData;
 
     private Integer basicVoice;
 
