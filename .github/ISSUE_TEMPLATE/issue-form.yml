@@ -7,7 +7,6 @@ body:
     id: issueType
     attributes:
       label: '📌 이슈 유형'
-      description: 'Labels 할당해주세요'
       options:
         - feat
         - init
@@ -16,7 +15,6 @@ body:
         - test
         - rename
         - chore
-        - ci
         - refactor
         - remove
         - docs
@@ -27,13 +25,10 @@ body:
     attributes:
       label: '🎟️ 상위 작업 (Ticket Number)'
       description: '상위 작업의 Ticket Number를 기입해주세요'
-      placeholder: 'MOONO-00'
     validations:
       required: true
 
-
   - type: input
-    id: textarea
     attributes:
       label: '📝 상세 내용(Description)'
       description: '이슈에 대해서 간략히 설명해주세요'
