@@ -1,13 +1,13 @@
 name: '이슈 생성'
 description: 'Repo에 이슈를 생성하며, 생성된 이슈는 Jira와 연동됩니다.'
 title: '이슈 이름을 작성해주세요'
-labels: ['feat']
 
 body:
   - type: dropdown
     id: issueType
     attributes:
       label: '📌 이슈 유형'
+      description: 'Labels 할당해주세요'
       options:
         - feat
         - init
@@ -27,7 +27,7 @@ body:
     attributes:
       label: '🎟️ 상위 작업 (Ticket Number)'
       description: '상위 작업의 Ticket Number를 기입해주세요'
-      placeholder: 'PRJ-00'
+      placeholder: 'MOONO-00'
     validations:
       required: true
 
