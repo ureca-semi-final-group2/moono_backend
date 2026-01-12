@@ -4,10 +4,12 @@ import jakarta.persistence.*;
 
 import java.time.LocalDate;
 import lombok.AccessLevel;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Entity
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
+@Getter
 public class Registration {
 
     @Id

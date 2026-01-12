@@ -4,12 +4,14 @@ import jakarta.persistence.*;
 
 import lombok.AccessLevel;
 
+import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.example.moono_backend.domain.common.BaseEntity;
 
 
 @Entity
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
+@Getter
 public class Plan extends BaseEntity {
 
     @Id
