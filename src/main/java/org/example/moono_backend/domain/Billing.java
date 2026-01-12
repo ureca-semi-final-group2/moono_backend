@@ -8,6 +8,8 @@ import java.time.YearMonth;
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
 
+import org.example.moono_backend.domain.common.UsageTimeId;
+
 /**
  * 청구서
  */
@@ -19,9 +21,14 @@ public class Billing {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private Long memberId;
+    //회원 fk
+    private String publicInfoId;
 
-    private Long subscriptionId;
+    //요금제 가입 정보 fk
+    private Long registrationId;
+
+    //사용량 fk
+    private UsageTimeId usageTimeId;
 
     private Integer totalFee;
 

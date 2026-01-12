@@ -13,7 +13,8 @@ public class MemberCredential {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private Long memberId;
+    //사용자 공개 id fk
+    private String publicInfoId;
 
     private String email;
 
