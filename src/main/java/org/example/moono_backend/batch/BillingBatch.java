@@ -1,5 +1,6 @@
 package org.example.moono_backend.batch;
 
+import java.sql.Types;
 import java.time.LocalDate;
 import lombok.RequiredArgsConstructor;
 import org.example.moono_backend.batch.dto.BillingWriteItem;
@@ -26,6 +27,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.transaction.PlatformTransactionManager;
 
 import javax.sql.DataSource;
@@ -129,20 +131,36 @@ public class BillingBatch {
                 paid_date
             )
             VALUES (
-                :billing.publicInfoId,
-                :billing.usageId,
-                :billing.billingFee,
-                :billing.status,
-                :billing.sendStatus,
-                :billing.billingDate,
-                :billing.paidDate
+                :publicInfoId,
+                :usageId,
+                :billingFee,
+                :status,
+                :sendStatus,
+                :billingDate,
+                :paidDate
             )
         """;
 
         return new JdbcBatchItemWriterBuilder<BillingWriteItem>()
                 .dataSource(dataSource)
                 .sql(sql)
-                .itemSqlParameterSourceProvider(BeanPropertySqlParameterSource::new)
+                .itemSqlParameterSourceProvider(item -> {
+                    Billing b = item.billing();
+                    MapSqlParameterSource p = new MapSqlParameterSource();
+
+                    p.addValue("publicInfoId", b.getPublicInfoId(), Types.VARCHAR);
+                    p.addValue("usageId", b.getUsageId(), Types.BIGINT);
+                    p.addValue("billingFee", b.getBillingFee(), Types.INTEGER);
+
+                    // enum은 문자열로 변환해서 넣기
+                    p.addValue("status", b.getStatus() == null ? null : b.getStatus().name(), Types.VARCHAR);
+                    p.addValue("sendStatus", b.getSendStatus() == null ? null : b.getSendStatus().name(), Types.VARCHAR);
+
+                    p.addValue("billingDate", b.getBillingDate(), Types.TIMESTAMP);
+                    p.addValue("paidDate", b.getPaidDate(), Types.TIMESTAMP);
+
+                    return p;
+                })
                 .build();
     }
 
