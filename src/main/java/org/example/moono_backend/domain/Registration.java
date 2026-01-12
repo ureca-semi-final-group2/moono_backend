@@ -2,7 +2,7 @@ package org.example.moono_backend.domain;
 
 import jakarta.persistence.*;
 
-import java.time.YearMonth;
+import java.time.LocalDate;
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
 
@@ -22,7 +22,7 @@ public class Registration {
 
     private Boolean premiumYn;
 
-    private YearMonth registerDate;
+    private LocalDate registerDate;
 
 
 }
