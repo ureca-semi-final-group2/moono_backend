@@ -1,5 +1,6 @@
 package org.example.moono_backend.batch;
 
+import java.time.LocalDate;
 import lombok.RequiredArgsConstructor;
 import org.example.moono_backend.batch.dto.BillingWriteItem;
 import org.example.moono_backend.domain.Billing;
@@ -92,7 +93,7 @@ public class BillingBatch {
                         .phoneNumber(rs.getString("phone_number"))
                         .address(rs.getString("address"))
                         .name(rs.getString("name"))
-                        .birth(rs.getObject("birth", LocalDateTime.class))
+                        .birth(rs.getObject("birth", LocalDate.class))
                         .build()
                 )
                 .build();

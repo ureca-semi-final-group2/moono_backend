@@ -38,3 +38,6 @@ out/
 node_modules/
 
 application.yml
+
+src/main/resources/sql/
+
