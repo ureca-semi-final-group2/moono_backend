@@ -1,4 +1,4 @@
-package org.example.moono_backend.domain;
+package org.example.moono_backend.domain.common;
 
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
