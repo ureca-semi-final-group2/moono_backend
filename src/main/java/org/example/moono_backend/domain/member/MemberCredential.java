@@ -2,9 +2,8 @@ package org.example.moono_backend.domain.member;
 
 import jakarta.persistence.*;
 
+import java.time.LocalDate;
 import lombok.*;
-
-import java.time.LocalDateTime;
 
 @Entity
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -29,6 +28,6 @@ public class MemberCredential {
 
     private String name;
 
-    private LocalDateTime birth;
+    private LocalDate birth;
 
 }
