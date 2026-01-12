@@ -2,20 +2,13 @@ package org.example.moono_backend.domain.member;
 
 import jakarta.persistence.*;
 
-import org.example.moono_backend.domain.BaseEntity;
+import org.example.moono_backend.domain.common.BaseEntity;
 
 @Entity
 public class PublicInfo extends BaseEntity {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private String id;
 
     private Long familyInfoId;
-
-    private String nickName;
-
-    private String profileImage;
-
-
 
 }

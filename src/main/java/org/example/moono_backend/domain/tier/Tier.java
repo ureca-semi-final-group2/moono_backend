@@ -5,7 +5,7 @@ import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
 
-import org.example.moono_backend.domain.BaseEntity;
+import org.example.moono_backend.domain.common.BaseEntity;
 
 
 @Entity

@@ -4,17 +4,19 @@ import jakarta.persistence.*;
 
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
+import org.example.moono_backend.domain.common.UsageTimeId;
 
 @Entity
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class UsageTime {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @EmbeddedId
+    private UsageTimeId id;
 
     private Integer callAmount;
 
     private Integer messageAmount;
+
+    private Integer dataAmount;
 
 }
