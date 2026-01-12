@@ -33,10 +33,6 @@ class ContractDiscountServiceTest {
 
     @BeforeEach
     void setUp() {
-        // 2026-01-12 12:00:00 Asia/Seoul 고정
-        ZoneId zone = ZoneId.of("Asia/Seoul");
-        Instant instant = LocalDateTime.of(2026, 1, 12, 12, 0).atZone(zone).toInstant();
-
         service = new ContractDiscountService(contractRepository, registrationRepository, planRepository);
     }
 
