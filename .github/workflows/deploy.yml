@@ -53,8 +53,6 @@ jobs:
           platforms: linux/arm64
           push: true
           tags: ${{ steps.login-ecr.outputs.registry }}/moono-backend:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
 
       # EC2에 접속하여 앱만 재시작
       - name: Deploy to EC2 via SSH
