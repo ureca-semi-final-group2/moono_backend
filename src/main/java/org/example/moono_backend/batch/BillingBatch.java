@@ -8,6 +8,8 @@ import org.example.moono_backend.domain.Billing;
 import org.example.moono_backend.domain.PayStatus;
 import org.example.moono_backend.domain.SendStatus;
 import org.example.moono_backend.domain.member.MemberCredential;
+import org.example.moono_backend.dto.DiscountInfo;
+import org.example.moono_backend.service.ContractDiscountService;
 import org.springframework.batch.core.ItemWriteListener;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
@@ -32,6 +34,8 @@ import org.springframework.transaction.PlatformTransactionManager;
 
 import javax.sql.DataSource;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 @Configuration
@@ -39,6 +43,8 @@ import java.util.Map;
 public class BillingBatch {
     private final JobRepository jobRepository;
     private final PlatformTransactionManager platformTransactionManager;
+
+    private final ContractDiscountService contractDiscountService;
 
     private final int CHUNK_SIZE = 1000;
 
@@ -104,6 +110,10 @@ public class BillingBatch {
     @Bean
     public ItemProcessor<MemberCredential, BillingWriteItem> billingProcessor() {
         return member -> {
+            List<DiscountInfo> discountInfoList = new ArrayList<>();
+
+            contractDiscountService.appendContractDiscounts(member.getPublicInfoId(), discountInfoList);
+
             // todo: 서비스 호출 방식, 로직 작성 필요
             Billing createdBilling = Billing.builder()
                     .billingDate(LocalDateTime.now())
