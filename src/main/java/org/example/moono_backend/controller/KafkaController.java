@@ -16,6 +16,6 @@ public class KafkaController {
     @PostMapping("/publish")
     public String sendMessage(@RequestParam("message") String message) {
         producerService.sendMessage("test-topic", message);
-        return "Success";
+        return "Success2";
     }
 }
