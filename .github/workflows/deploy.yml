@@ -19,8 +19,9 @@ jobs:
 
       - name: Create application-prod.yml
         run: |
-          mkdir -p src/main/resources
-          echo "${{ secrets.APPLICATION_PROD_YML }}" > src/main/resources/application-prod.yml
+          cat << 'EOF' > src/main/resources/application-prod.yml
+          ${{ secrets.APPLICATION_PROD_YML }}
+          EOF
 
       - name: Build with Gradle
         run: ./gradlew clean build -x test
