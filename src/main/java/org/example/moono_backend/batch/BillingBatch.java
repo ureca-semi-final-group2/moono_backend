@@ -1,15 +1,22 @@
 package org.example.moono_backend.batch;
 
 import java.sql.Types;
-import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
+
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.example.moono_backend.batch.dto.BillingSourceRow;
 import org.example.moono_backend.batch.dto.BillingWriteItem;
 import org.example.moono_backend.domain.Billing;
 import org.example.moono_backend.domain.PayStatus;
 import org.example.moono_backend.domain.SendStatus;
-import org.example.moono_backend.domain.member.MemberCredential;
 import org.example.moono_backend.dto.DiscountInfo;
 import org.example.moono_backend.service.ContractDiscountService;
+import org.springframework.batch.core.ChunkListener;
+import org.springframework.batch.core.ItemProcessListener;
+import org.springframework.batch.core.ItemReadListener;
 import org.springframework.batch.core.ItemWriteListener;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
@@ -22,109 +29,136 @@ import org.springframework.batch.item.ItemProcessor;
 import org.springframework.batch.item.database.JdbcBatchItemWriter;
 import org.springframework.batch.item.database.JdbcPagingItemReader;
 import org.springframework.batch.item.database.Order;
+import org.springframework.batch.item.database.PagingQueryProvider;
 import org.springframework.batch.item.database.builder.JdbcBatchItemWriterBuilder;
 import org.springframework.batch.item.database.builder.JdbcPagingItemReaderBuilder;
 import org.springframework.batch.item.database.support.PostgresPagingQueryProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.transaction.PlatformTransactionManager;
 
 import javax.sql.DataSource;
-import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
 
 @Configuration
 @RequiredArgsConstructor
+@Slf4j
 public class BillingBatch {
+
     private final JobRepository jobRepository;
     private final PlatformTransactionManager platformTransactionManager;
-
     private final ContractDiscountService contractDiscountService;
-
-    private final int CHUNK_SIZE = 1000;
+    private static final int CHUNK_SIZE = 1000;
 
     @Bean
     public Job billingJob(Step discountStep) {
         return new JobBuilder("billingJob", jobRepository)
-                .start(discountStep)
-                .build();
+            .start(discountStep)
+            .build();
     }
 
     @Bean
     public Step discountStep(
-            JdbcPagingItemReader<MemberCredential> memberCredentialReader,
-            ItemProcessor<MemberCredential, BillingWriteItem> billingProcessor,
-            JdbcBatchItemWriter<BillingWriteItem> billingWriter,
-            LastIdListener lastIdStepListener
+        JdbcPagingItemReader<BillingSourceRow> billingSourceReader,
+        ItemProcessor<BillingSourceRow, BillingWriteItem> billingProcessor,
+        JdbcBatchItemWriter<BillingWriteItem> billingWriter,
+        LastIdListener lastIdStepListener,
+        ChunkTimingListener<BillingSourceRow, BillingWriteItem> chunkTimingListener
     ) {
         return new StepBuilder("discountStep", jobRepository)
-                .<MemberCredential, BillingWriteItem>chunk(CHUNK_SIZE, platformTransactionManager)
-                .reader(memberCredentialReader)
-                .processor(billingProcessor)
-                .writer(billingWriter)
-                .listener((StepExecutionListener) lastIdStepListener)
-                .listener((ItemWriteListener<? super BillingWriteItem>) lastIdStepListener)
-                .build();
+            .<BillingSourceRow, BillingWriteItem>chunk(CHUNK_SIZE, platformTransactionManager)
+            .reader(billingSourceReader)
+            .processor(billingProcessor)
+            .writer(billingWriter)
+            .listener((StepExecutionListener) lastIdStepListener)
+            .listener((ItemWriteListener<? super BillingWriteItem>) lastIdStepListener)
+            .listener((StepExecutionListener) chunkTimingListener)
+            .listener((ChunkListener) chunkTimingListener)
+            .listener((ItemReadListener<? super BillingSourceRow>) chunkTimingListener)
+            .listener((ItemProcessListener<? super BillingSourceRow, ? super BillingWriteItem>) chunkTimingListener)
+            .listener((ItemWriteListener<? super BillingWriteItem>) chunkTimingListener)
+            .build();
     }
 
     @Bean
     @StepScope
-    public JdbcPagingItemReader<MemberCredential> memberCredentialReader(
-            DataSource dataSource,
-            @Value("#{stepExecutionContext['lastId']}") Long lastId
+    public JdbcPagingItemReader<BillingSourceRow> billingSourceReader(
+        DataSource dataSource,
+        PagingQueryProvider queryProvider,
+        @Value("#{stepExecutionContext['lastId']}") String lastId
     ) {
-        long safeLastId = (lastId == null) ? 0L : lastId;
-
-        // Postgres 전용 QueryProvider
-        PostgresPagingQueryProvider queryProvider = new PostgresPagingQueryProvider();
-
-        queryProvider.setSelectClause("SELECT id, public_info_id, email, phone_number, address, name, birth");
-        queryProvider.setFromClause("FROM member_credential");
-        queryProvider.setWhereClause("WHERE id > :lastId");
-        queryProvider.setSortKeys(Map.of("id", Order.ASCENDING));
-
-        return new JdbcPagingItemReaderBuilder<MemberCredential>()
-                .name("memberCredentialReader")
-                .dataSource(dataSource)
-                .queryProvider(queryProvider)
-                .parameterValues(Map.of("lastId", safeLastId)) // 실행 시점에 주입된 값
-                .pageSize(CHUNK_SIZE)
-                .rowMapper((rs, rowNum) -> MemberCredential.builder()
-                        .id(rs.getLong("id"))
-                        .publicInfoId(rs.getString("public_info_id"))
-                        .email(rs.getString("email"))
-                        .phoneNumber(rs.getString("phone_number"))
-                        .address(rs.getString("address"))
-                        .name(rs.getString("name"))
-                        .birth(rs.getObject("birth", LocalDate.class))
-                        .build()
-                )
-                .build();
+        return new JdbcPagingItemReaderBuilder<BillingSourceRow>()
+            .name("billingSourceReader")
+            .dataSource(dataSource)
+            .queryProvider(queryProvider)
+            .parameterValues(lastId == null ? Map.of() : Map.of("lastId", lastId))
+            .pageSize(CHUNK_SIZE)
+            .rowMapper((rs, rowNum) -> new BillingSourceRow(
+                rs.getString("public_info_id"),
+                rs.getInt("base_fee"),
+                rs.getBoolean("premium_yn"),
+                rs.getInt("term_year"),
+                rs.getTimestamp("contract_created_at").toLocalDateTime()
+            ))
+            .build();
     }
 
     @Bean
-    public ItemProcessor<MemberCredential, BillingWriteItem> billingProcessor() {
-        return member -> {
-            List<DiscountInfo> discountInfoList = new ArrayList<>();
+    @StepScope
+    public PagingQueryProvider pagingQueryProvider(@Value("#{stepExecutionContext['lastId']}") String lastId) {
+        PostgresPagingQueryProvider queryProvider = new PostgresPagingQueryProvider();
+        queryProvider.setSelectClause("""
+    SELECT
+        pi.id            AS public_info_id,
+        p.base_fee       AS base_fee,
+        p.premium_yn     AS premium_yn,
+        c.term_year      AS term_year,
+        c.created_at     AS contract_created_at
+    """);
 
-            contractDiscountService.appendContractDiscounts(member.getPublicInfoId(), discountInfoList);
+        queryProvider.setFromClause("""
+            FROM public_info pi
+            JOIN registration r ON r.public_info_id = pi.id
+            JOIN plan p         ON p.id = r.plan_id
+            JOIN contract c     ON c.register_id = r.id
+    """);
 
-            // todo: 서비스 호출 방식, 로직 작성 필요
+        if (lastId != null) {
+            queryProvider.setWhereClause("WHERE pi.id > :lastId");
+        }
+
+        queryProvider.setSortKeys(Map.of("public_info_id", Order.ASCENDING));
+
+        return queryProvider;
+    }
+
+
+    @Bean
+    @StepScope
+    public ItemProcessor<BillingSourceRow, BillingWriteItem> billingProcessor(
+        @Value("#{jobParameters['now']}") String nowParam
+    ) {
+        LocalDateTime now =LocalDateTime.now();
+
+        return row -> {
+            List<DiscountInfo> discounts=contractDiscountService.calculateContractDiscounts(row,now);
+
+            // TODO: 할인 반영해서 billingFee 계산
+            int billingFee = 0;
+
             Billing createdBilling = Billing.builder()
-                    .billingDate(LocalDateTime.now())
-                    .paidDate(null)
-                    .status(PayStatus.UNPAID)
-                    .sendStatus(SendStatus.PENDING)
-                    .publicInfoId(member.getPublicInfoId())
-                    .billingFee(0)
-                    .build();
+                .publicInfoId(row.publicInfoId())
+                .usageId(1L) // TODO: 실제 usage_time id 필요하면 Reader에서 조인해서 가져오세요
+                .billingFee(billingFee)
+                .status(PayStatus.UNPAID)
+                .sendStatus(SendStatus.PENDING)
+                .billingDate(now)
+                .paidDate(null)
+                .build();
 
-            return new BillingWriteItem(member.getId(), createdBilling);
+            // BillingWriteItem 첫 번째 값은 lastId 갱신용으로 member_id 넣는 걸 추천
+            return new BillingWriteItem(1L, createdBilling);
         };
     }
 
@@ -152,26 +186,29 @@ public class BillingBatch {
         """;
 
         return new JdbcBatchItemWriterBuilder<BillingWriteItem>()
-                .dataSource(dataSource)
-                .sql(sql)
-                .itemSqlParameterSourceProvider(item -> {
-                    Billing b = item.billing();
-                    MapSqlParameterSource p = new MapSqlParameterSource();
+            .dataSource(dataSource)
+            .sql(sql)
+            .itemSqlParameterSourceProvider(item -> {
+                Billing b = item.billing();
+                MapSqlParameterSource p = new MapSqlParameterSource();
 
-                    p.addValue("publicInfoId", b.getPublicInfoId(), Types.VARCHAR);
-                    p.addValue("usageId", b.getUsageId(), Types.BIGINT);
-                    p.addValue("billingFee", b.getBillingFee(), Types.INTEGER);
+                p.addValue("publicInfoId", b.getPublicInfoId(), Types.VARCHAR);
+                p.addValue("usageId", b.getUsageId(), Types.BIGINT);
 
-                    // enum은 문자열로 변환해서 넣기
-                    p.addValue("status", b.getStatus() == null ? null : b.getStatus().name(), Types.VARCHAR);
-                    p.addValue("sendStatus", b.getSendStatus() == null ? null : b.getSendStatus().name(), Types.VARCHAR);
+                p.addValue("billingFee", b.getBillingFee(), Types.INTEGER);
+                p.addValue("status", b.getStatus() == null ? null : b.getStatus().name(), Types.VARCHAR);
+                p.addValue("sendStatus", b.getSendStatus() == null ? null : b.getSendStatus().name(), Types.VARCHAR);
 
-                    p.addValue("billingDate", b.getBillingDate(), Types.TIMESTAMP);
-                    p.addValue("paidDate", b.getPaidDate(), Types.TIMESTAMP);
+                p.addValue("billingDate", b.getBillingDate(), Types.TIMESTAMP);
+                p.addValue("paidDate", b.getPaidDate(), Types.TIMESTAMP);
 
-                    return p;
-                })
-                .build();
+                return p;
+            })
+            .build();
     }
 
+    @Bean
+    public ChunkTimingListener<BillingSourceRow, BillingWriteItem> chunkTimingListener() {
+        return new ChunkTimingListener<>();
+    }
 }
