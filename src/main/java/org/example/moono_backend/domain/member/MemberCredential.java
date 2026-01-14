@@ -30,4 +30,5 @@ public class MemberCredential {
 
     private LocalDate birth;
 
+    private LocalDate createdAt;
 }
