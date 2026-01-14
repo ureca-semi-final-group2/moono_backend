@@ -17,7 +17,7 @@ public class LastIdListener implements StepExecutionListener, ItemWriteListener<
     public void beforeStep(StepExecution stepExecution) {
         this.stepExecution = stepExecution;
         if (!stepExecution.getExecutionContext().containsKey(KEY_LAST_ID)) {
-            stepExecution.getExecutionContext().putLong(KEY_LAST_ID, 0L);
+            stepExecution.getExecutionContext().putString(KEY_LAST_ID, null);
         }
     }
 
@@ -27,11 +27,13 @@ public class LastIdListener implements StepExecutionListener, ItemWriteListener<
             return;
         }
 
-        long maxId = items.getItems().stream()
-                .mapToLong(BillingWriteItem::memberCredentialId)
-                .max()
-                .orElse(stepExecution.getExecutionContext().getLong(KEY_LAST_ID));
+        String lastPublicInfoId = items.getItems().stream()
+            .map(item -> item.billing().getPublicInfoId())
+            .max(String::compareTo)
+            .orElse(null);
 
-        stepExecution.getExecutionContext().putLong(KEY_LAST_ID, maxId);
+        if (lastPublicInfoId != null) {
+            stepExecution.getExecutionContext().putString(KEY_LAST_ID, lastPublicInfoId);
+        }
     }
 }

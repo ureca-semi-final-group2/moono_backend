@@ -1,14 +1,14 @@
 package org.example.moono_backend.service;
 
+import java.util.ArrayList;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
-import org.example.moono_backend.domain.Contract;
-import org.example.moono_backend.domain.Plan;
-import org.example.moono_backend.domain.Registration;
+import lombok.extern.slf4j.Slf4j;
+import org.example.moono_backend.batch.dto.BillingSourceRow;
+
 import org.example.moono_backend.domain.discount.Discount;
 import org.example.moono_backend.dto.DiscountInfo;
-import org.example.moono_backend.repository.ContractRepository;
-import org.example.moono_backend.repository.PlanRepository;
-import org.example.moono_backend.repository.RegistrationRepository;
+
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -16,44 +16,23 @@ import java.util.List;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class ContractDiscountService {
-    private final ContractRepository contractRepository;
-    private final RegistrationRepository registrationRepository;
-    private final PlanRepository planRepository;
-
     private final int PREMIUM_CONTRACT_TERM_YEARS = 2;
 
-    public void appendContractDiscounts(String publicInfoId, List<DiscountInfo> discountInfoList) {
-        Registration registration = registrationRepository.findByPublicInfoId(publicInfoId);
-        if (registration == null) {
-            return;
+    public List<DiscountInfo> calculateContractDiscounts(BillingSourceRow row, LocalDateTime now) {
+        LocalDateTime expirationDate = row.contractCreatedAt().plusYears(row.termYear());
+        if (expirationDate.isBefore(now)) {
+            return List.of();
         }
 
-        Contract contract = contractRepository.findByRegisterId(registration.getId());
-        if (contract == null) {
-            return;
+        List<DiscountInfo> discounts = new ArrayList<>();
+        discounts.add(DiscountInfo.from(Discount.SELECTION_CONTRACT, row.baseFee()));
+
+        if (row.premiumYn() && row.termYear() == PREMIUM_CONTRACT_TERM_YEARS) {
+            discounts.add(DiscountInfo.from(Discount.PREMIUM_CONTRACT, row.baseFee()));
         }
 
-        Plan plan = planRepository.findById(registration.getPlanId())
-                        .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 요금제입니다."));
-
-        LocalDateTime expirationDate = contract.getCreatedAt().plusYears(contract.getTermYear());
-
-        // 만기된 약정
-        if (expirationDate.isBefore(LocalDateTime.now())) {
-            return;
-        }
-
-        int baseFee = plan.getBaseFee();
-
-        // 선택 약정 할인
-        DiscountInfo discountInfo = DiscountInfo.from(Discount.SELECTION_CONTRACT, baseFee);
-        discountInfoList.add(discountInfo);
-
-        // 프리미엄 약정 할인 = 2년 약정 및 프리미엄 요금제
-        if (plan.getPremiumYn() && contract.getTermYear() == PREMIUM_CONTRACT_TERM_YEARS) {
-            DiscountInfo premiumDiscountInfo = DiscountInfo.from(Discount.PREMIUM_CONTRACT, baseFee);
-            discountInfoList.add(premiumDiscountInfo);
-        }
+        return discounts;
     }
 }
