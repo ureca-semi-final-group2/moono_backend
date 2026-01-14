@@ -48,24 +48,4 @@ public class AdditionalServiceDiscountService {
         return discountInfos;
     }
 
-    /**
-     * 부가서비스 총 청구 금액 계산 (할인 적용 후)
-     */
-    public int calculateTotalAdditionalServiceFee(String publicInfoId, String tierName) {
-        List<AdditionalServiceSubscription> subscriptions =
-                additionalServiceSubscriptionRepository.findByPublicInfoIdAndActiveYn(publicInfoId, true);
-
-        int totalFee = 0;
-
-        for (AdditionalServiceSubscription subscription : subscriptions) {
-            try {
-                AdditionalService service = AdditionalService.valueOf(subscription.getServiceCode());
-                totalFee += service.getFinalPrice(tierName);
-            } catch (IllegalArgumentException e) {
-                log.warn("Unknown service code: {}", subscription.getServiceCode());
-            }
-        }
-
-        return totalFee;
-    }
 }
