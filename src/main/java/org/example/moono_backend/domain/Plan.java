@@ -25,11 +25,15 @@ public class Plan extends BaseEntity {
 
     private Integer baseFee;
 
+    //기본 제공량
     private Double basicMobileData;
-
     private Integer basicVoice;
-
     private Integer basicSms;
+
+    //초과단가
+    private Integer overVoiceUnitFee;
+    private Integer overSmsUnitFee;
+    private Integer overDataUnitFeePerMb;
 
     private Boolean premiumYn;
 
