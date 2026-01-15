@@ -20,6 +20,7 @@ import org.example.moono_backend.domain.member.MemberCredential;
 import org.example.moono_backend.dto.DiscountInfo;
 import org.example.moono_backend.service.ContractDiscountService;
 import org.example.moono_backend.service.EventDiscountService;
+import org.example.moono_backend.service.PlanDiscountService;
 import org.springframework.batch.core.ChunkListener;
 import org.springframework.batch.core.ItemProcessListener;
 import org.springframework.batch.core.ItemReadListener;
@@ -120,6 +121,7 @@ public class BillingBatch {
             .rowMapper((rs, rowNum) -> new BillingSourceRow(
                 rs.getString("public_info_id"),
                 rs.getInt("base_fee"),
+                rs.getLong("plan_id"),
                 rs.getBoolean("premium_yn"),
                 rs.getInt("term_year"),
                 rs.getTimestamp("contract_created_at").toLocalDateTime(),
@@ -142,6 +144,7 @@ public class BillingBatch {
         pi.id            AS public_info_id,
         p.base_fee       AS base_fee,
         p.premium_yn     AS premium_yn,
+        p.id AS plan_id,
         c.term_year      AS term_year,
         c.created_at     AS contract_created_at,
         ut.call_amount   AS call_amount,
@@ -178,8 +181,8 @@ public class BillingBatch {
     @StepScope
     public ItemProcessor<BillingSourceRow, BillingWriteItem> billingProcessor(
         @Value("#{jobParameters['now']}") String nowParam,
-        MemberPreloadListener memberPreloadListener
-    ) {
+        MemberPreloadListener memberPreloadListener,
+        PlanDiscountService planDiscountService) {
         LocalDateTime now =LocalDateTime.now();
 
         return row -> {
@@ -195,6 +198,9 @@ public class BillingBatch {
             if (birthdayMonthDiscount != null) {
                 discountInfoList.add(birthdayMonthDiscount);
             }
+
+            //요금제 별 정보 조회
+            planDiscountService.calculatePlanDiscounts(row);
 
 
             // TODO: 할인 반영해서 billingFee 계산
