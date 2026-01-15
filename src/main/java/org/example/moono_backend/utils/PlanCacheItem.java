@@ -11,9 +11,16 @@ public class PlanCacheItem {
     private final Long tierId;
     private final String planName;
     private final Integer baseFee;
+
     private final Double basicMobileData;
     private final Integer basicVoice;
     private final Integer basicSms;
+
+    //초과단가
+    private Integer overVoiceUnitFee;
+    private Integer overSmsUnitFee;
+    private Integer overDataUnitFeePerMb;
+
     private final Boolean premiumYn;
     private final Boolean dataInfiniteYn;
 }
