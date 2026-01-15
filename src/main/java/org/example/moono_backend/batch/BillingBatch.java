@@ -130,7 +130,7 @@ public class BillingBatch {
             FROM public_info pi
             JOIN registration r ON r.public_info_id = pi.id
             JOIN plan p         ON p.id = r.plan_id
-            JOIN contract c     ON c.register_id = r.id
+            LEFT OUTER JOIN contract c     ON c.register_id = r.id
     """);
 
         if (lastId != null) {
