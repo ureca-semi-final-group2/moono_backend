@@ -19,8 +19,11 @@ public interface PlanRepository extends JpaRepository<Plan, Long> {
             p.basicMobileData,
             p.basicVoice,
             p.basicSms,
+            p.overVoiceUnitFee,
+            p.overSmsUnitFee,
+            p.overDataUnitFeePerMb,
             p.premiumYn,
-            p.dataInfiniteYn
+            p.dataInfiniteYn    
         )
         FROM Plan p
     """)

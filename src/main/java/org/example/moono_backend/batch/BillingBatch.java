@@ -18,6 +18,7 @@ import org.example.moono_backend.domain.PayStatus;
 import org.example.moono_backend.domain.SendStatus;
 import org.example.moono_backend.domain.member.MemberCredential;
 import org.example.moono_backend.dto.DiscountInfo;
+import org.example.moono_backend.dto.OverageChargeInfo;
 import org.example.moono_backend.service.ContractDiscountService;
 import org.example.moono_backend.service.EventDiscountService;
 import org.example.moono_backend.service.PlanDiscountService;
@@ -199,8 +200,8 @@ public class BillingBatch {
                 discountInfoList.add(birthdayMonthDiscount);
             }
 
-            //요금제 별 정보 조회
-            planDiscountService.calculatePlanDiscounts(row);
+            //요금제 별 과금 조회
+            List<OverageChargeInfo> overageChargeInfos=planDiscountService.calculatePlanDiscounts(row);
 
 
             // TODO: 할인 반영해서 billingFee 계산

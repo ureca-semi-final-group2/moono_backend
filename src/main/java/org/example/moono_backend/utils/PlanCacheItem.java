@@ -12,7 +12,7 @@ public class PlanCacheItem {
     private final String planName;
     private final Integer baseFee;
 
-    private final Double basicMobileData;
+    private final Integer basicMobileData;
     private final Integer basicVoice;
     private final Integer basicSms;
 
