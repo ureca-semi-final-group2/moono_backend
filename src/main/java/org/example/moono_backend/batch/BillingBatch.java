@@ -180,7 +180,7 @@ public class BillingBatch {
                     .sum();
 
             // 최종 청구 금액
-            int billingFeeResult = billingFee - totalDiscount;
+            int billingFeeResult = Math.max(0, billingFee - totalDiscount);
 
             Billing createdBilling = Billing.builder()
                 .id(IdGenerator.generate())
