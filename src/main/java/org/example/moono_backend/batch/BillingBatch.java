@@ -2,6 +2,7 @@ package org.example.moono_backend.batch;
 
 import java.sql.Types;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -12,8 +13,10 @@ import org.example.moono_backend.batch.dto.BillingWriteItem;
 import org.example.moono_backend.domain.Billing;
 import org.example.moono_backend.domain.PayStatus;
 import org.example.moono_backend.domain.SendStatus;
+import org.example.moono_backend.domain.member.MemberCredential;
 import org.example.moono_backend.dto.DiscountInfo;
 import org.example.moono_backend.service.ContractDiscountService;
+import org.example.moono_backend.service.EventDiscountService;
 import org.springframework.batch.core.ChunkListener;
 import org.springframework.batch.core.ItemProcessListener;
 import org.springframework.batch.core.ItemReadListener;
@@ -48,7 +51,10 @@ public class BillingBatch {
 
     private final JobRepository jobRepository;
     private final PlatformTransactionManager platformTransactionManager;
+
     private final ContractDiscountService contractDiscountService;
+    private final EventDiscountService eventDiscountService;
+
     private static final int CHUNK_SIZE = 1000;
 
     @Bean
@@ -64,8 +70,8 @@ public class BillingBatch {
         ItemProcessor<BillingSourceRow, BillingWriteItem> billingProcessor,
         JdbcBatchItemWriter<BillingWriteItem> billingWriter,
         LastIdListener lastIdStepListener,
-        ChunkTimingListener<BillingSourceRow, BillingWriteItem> chunkTimingListener
-    ) {
+        ChunkTimingListener<BillingSourceRow, BillingWriteItem> chunkTimingListener,
+        MemberPreloadListener memberPreloadListener) {
         return new StepBuilder("discountStep", jobRepository)
             .<BillingSourceRow, BillingWriteItem>chunk(CHUNK_SIZE, platformTransactionManager)
             .reader(billingSourceReader)
@@ -78,6 +84,9 @@ public class BillingBatch {
             .listener((ItemReadListener<? super BillingSourceRow>) chunkTimingListener)
             .listener((ItemProcessListener<? super BillingSourceRow, ? super BillingWriteItem>) chunkTimingListener)
             .listener((ItemWriteListener<? super BillingWriteItem>) chunkTimingListener)
+            // memberPreloadListener 등록
+            .listener((ItemReadListener<? super BillingSourceRow>) memberPreloadListener)
+            .listener((ChunkListener) memberPreloadListener)
             .build();
     }
 
@@ -137,12 +146,25 @@ public class BillingBatch {
     @Bean
     @StepScope
     public ItemProcessor<BillingSourceRow, BillingWriteItem> billingProcessor(
-        @Value("#{jobParameters['now']}") String nowParam
+        @Value("#{jobParameters['now']}") String nowParam,
+        MemberPreloadListener memberPreloadListener
     ) {
         LocalDateTime now =LocalDateTime.now();
 
         return row -> {
-            List<DiscountInfo> discounts=contractDiscountService.calculateContractDiscounts(row,now);
+            // DB 조회가 아닌 리스너의 메모리 캐시에서 가져옴 (N + 1 방지)
+            MemberCredential memberCredential = memberPreloadListener.getMember(row.publicInfoId());
+
+            List<DiscountInfo> discountInfoList = new ArrayList<>();
+
+            List<DiscountInfo> contractDiscounts = contractDiscountService.calculateContractDiscounts(row, now);
+            discountInfoList.addAll(contractDiscounts);
+
+            DiscountInfo birthdayMonthDiscount = eventDiscountService.birthdayMonthDiscount(memberCredential, row.baseFee());
+            if (birthdayMonthDiscount != null) {
+                discountInfoList.add(birthdayMonthDiscount);
+            }
+
 
             // TODO: 할인 반영해서 billingFee 계산
             int billingFee = 0;
