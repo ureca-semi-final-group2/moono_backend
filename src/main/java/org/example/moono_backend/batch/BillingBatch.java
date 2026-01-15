@@ -13,10 +13,12 @@ import org.example.moono_backend.batch.dto.BillingWriteItem;
 import org.example.moono_backend.domain.Billing;
 import org.example.moono_backend.domain.PayStatus;
 import org.example.moono_backend.domain.SendStatus;
+import org.example.moono_backend.domain.discount.DiscountEntity;
 import org.example.moono_backend.domain.member.MemberCredential;
 import org.example.moono_backend.dto.DiscountInfo;
 import org.example.moono_backend.service.ContractDiscountService;
 import org.example.moono_backend.service.EventDiscountService;
+import org.example.moono_backend.support.IdGenerator;
 import org.springframework.batch.core.ChunkListener;
 import org.springframework.batch.core.ItemProcessListener;
 import org.springframework.batch.core.ItemReadListener;
@@ -29,6 +31,7 @@ import org.springframework.batch.core.job.builder.JobBuilder;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.builder.StepBuilder;
 import org.springframework.batch.item.ItemProcessor;
+import org.springframework.batch.item.ItemWriter;
 import org.springframework.batch.item.database.JdbcBatchItemWriter;
 import org.springframework.batch.item.database.JdbcPagingItemReader;
 import org.springframework.batch.item.database.Order;
@@ -36,10 +39,13 @@ import org.springframework.batch.item.database.PagingQueryProvider;
 import org.springframework.batch.item.database.builder.JdbcBatchItemWriterBuilder;
 import org.springframework.batch.item.database.builder.JdbcPagingItemReaderBuilder;
 import org.springframework.batch.item.database.support.PostgresPagingQueryProvider;
+import org.springframework.batch.item.support.CompositeItemWriter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.jdbc.core.namedparam.SqlParameterSource;
 import org.springframework.transaction.PlatformTransactionManager;
 
 import javax.sql.DataSource;
@@ -68,7 +74,7 @@ public class BillingBatch {
     public Step discountStep(
         JdbcPagingItemReader<BillingSourceRow> billingSourceReader,
         ItemProcessor<BillingSourceRow, BillingWriteItem> billingProcessor,
-        JdbcBatchItemWriter<BillingWriteItem> billingWriter,
+        CompositeItemWriter<BillingWriteItem> billingCompositeWriter,
         LastIdListener lastIdStepListener,
         ChunkTimingListener<BillingSourceRow, BillingWriteItem> chunkTimingListener,
         MemberPreloadListener memberPreloadListener) {
@@ -76,7 +82,7 @@ public class BillingBatch {
             .<BillingSourceRow, BillingWriteItem>chunk(CHUNK_SIZE, platformTransactionManager)
             .reader(billingSourceReader)
             .processor(billingProcessor)
-            .writer(billingWriter)
+            .writer(billingCompositeWriter) // 복합 Writer
             .listener((StepExecutionListener) lastIdStepListener)
             .listener((ItemWriteListener<? super BillingWriteItem>) lastIdStepListener)
             .listener((StepExecutionListener) chunkTimingListener)
@@ -152,6 +158,8 @@ public class BillingBatch {
         LocalDateTime now =LocalDateTime.now();
 
         return row -> {
+            int billingFee = row.baseFee();
+
             // DB 조회가 아닌 리스너의 메모리 캐시에서 가져옴 (N + 1 방지)
             MemberCredential memberCredential = memberPreloadListener.getMember(row.publicInfoId());
 
@@ -166,22 +174,48 @@ public class BillingBatch {
             }
 
 
-            // TODO: 할인 반영해서 billingFee 계산
-            int billingFee = 0;
+            // 할인 금액 합산
+            int totalDiscount = discountInfoList.stream()
+                    .mapToInt(DiscountInfo::discountAmount)
+                    .sum();
+
+            // 최종 청구 금액
+            int billingFeeResult = billingFee - totalDiscount;
 
             Billing createdBilling = Billing.builder()
+                .id(IdGenerator.generate())
                 .publicInfoId(row.publicInfoId())
                 .usageId(1L) // TODO: 실제 usage_time id 필요하면 Reader에서 조인해서 가져오세요
-                .billingFee(billingFee)
+                .billingFee(billingFeeResult)
                 .status(PayStatus.UNPAID)
                 .sendStatus(SendStatus.PENDING)
                 .billingDate(now)
                 .paidDate(null)
                 .build();
 
+            List<DiscountEntity> discountEntities = discountInfoList.stream()
+                    .map(d -> DiscountEntity.builder()
+                            .billingId(createdBilling.getId())
+                            .discountName(d.discountName())
+                            .discountAmount(d.discountAmount())
+                            .build()
+                    ).toList();
             // BillingWriteItem 첫 번째 값은 lastId 갱신용으로 member_id 넣는 걸 추천
-            return new BillingWriteItem(1L, createdBilling);
+            return new BillingWriteItem(1L, createdBilling, discountEntities);
         };
+    }
+
+    @Bean
+    CompositeItemWriter<BillingWriteItem> billingCompositeWriter(
+            JdbcBatchItemWriter<BillingWriteItem> billingWriter,
+            ItemWriter<BillingWriteItem> discountWriter
+    ) {
+        CompositeItemWriter<BillingWriteItem> w = new CompositeItemWriter<>();
+        w.setDelegates(List.of(
+                billingWriter,  // 1. billing insert
+                discountWriter  // 2. discount insert
+        ));
+        return w;
     }
 
     @Bean
@@ -228,6 +262,35 @@ public class BillingBatch {
             })
             .build();
     }
+
+    @Bean
+    public ItemWriter<BillingWriteItem> discountWriter(NamedParameterJdbcTemplate jdbc) {
+        String sql = """
+                INSERT INTO discount (billing_id, discount_name, discount_amount) 
+                VALUES (:billingId, :discountName, :discountAmount)
+                """;
+
+        return items -> {
+            List<SqlParameterSource> params = new ArrayList<>();
+
+            for (BillingWriteItem item : items) {
+                List<DiscountEntity> discountEntities = item.discountEntities();
+
+                for (DiscountEntity d : discountEntities) {
+                    MapSqlParameterSource p = new MapSqlParameterSource();
+                    p.addValue("billingId", d.getBillingId());
+                    p.addValue("discountName", d.getDiscountName());
+                    p.addValue("discountAmount", d.getDiscountAmount());
+                    params.add(p);
+                }
+            }
+
+            if (!params.isEmpty()) {
+                jdbc.batchUpdate(sql, params.toArray(SqlParameterSource[]::new));
+            }
+        };
+    }
+
 
     @Bean
     public ChunkTimingListener<BillingSourceRow, BillingWriteItem> chunkTimingListener() {
