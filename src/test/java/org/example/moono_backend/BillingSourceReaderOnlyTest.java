@@ -35,7 +35,7 @@ class BillingSourceReaderOnlyTest {
         this.context = new AnnotationConfigApplicationContext(TestDataSourceConfiguration.class);
         this.dataSource = context.getBean(DataSource.class);
         this.jdbcTemplate = new JdbcTemplate(this.dataSource);
-        this.billingBatch = new BillingBatch(null, null,null);
+        this.billingBatch = new BillingBatch(null, null,null, null);
         seed();
     }
 

@@ -5,7 +5,8 @@ import lombok.Getter;
 @Getter
 public enum Discount {
     SELECTION_CONTRACT("선택 약정 할인", DiscountType.PERCENTAGE, 25),
-    PREMIUM_CONTRACT("프리미엄 약정 할인", DiscountType.FIXED_AMOUNT, 5_250);
+    PREMIUM_CONTRACT("프리미엄 약정 할인", DiscountType.FIXED_AMOUNT, 5_250),
+    BIRTHDAY_MONTH("생일 달 할인", DiscountType.PERCENTAGE, 5);
 
     private final String displayName;
     private final DiscountType discountType;
