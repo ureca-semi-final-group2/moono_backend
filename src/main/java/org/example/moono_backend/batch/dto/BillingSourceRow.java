@@ -7,5 +7,8 @@ public record BillingSourceRow(
     Integer baseFee,
     Boolean premiumYn,
     Integer termYear,
-    LocalDateTime contractCreatedAt
+    LocalDateTime contractCreatedAt,
+    Integer callAmount,
+    Integer messageAmount,
+    Integer dataAmount
 ) {}

@@ -1,8 +1,11 @@
 package org.example.moono_backend.batch;
 
+import java.sql.Date;
 import java.sql.Types;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -95,27 +98,44 @@ public class BillingBatch {
     public JdbcPagingItemReader<BillingSourceRow> billingSourceReader(
         DataSource dataSource,
         PagingQueryProvider queryProvider,
-        @Value("#{stepExecutionContext['lastId']}") String lastId
+        @Value("#{stepExecutionContext['lastId']}") String lastId,
+        @Value("#{jobParameters['date']}") String dateParam
     ) {
+
+        //sql에서 이해하는 걸로 변경
+        LocalDate usageDate= LocalDate.parse(dateParam);
+        Map<String,Object> params = new HashMap<>();
+        params.put("usageDate", Date.valueOf(usageDate));
+        if (lastId != null) {
+            params.put("lastId", lastId);
+        }
+
+
         return new JdbcPagingItemReaderBuilder<BillingSourceRow>()
             .name("billingSourceReader")
             .dataSource(dataSource)
             .queryProvider(queryProvider)
-            .parameterValues(lastId == null ? Map.of() : Map.of("lastId", lastId))
+            .parameterValues(params)
             .pageSize(CHUNK_SIZE)
             .rowMapper((rs, rowNum) -> new BillingSourceRow(
                 rs.getString("public_info_id"),
                 rs.getInt("base_fee"),
                 rs.getBoolean("premium_yn"),
                 rs.getInt("term_year"),
-                rs.getTimestamp("contract_created_at").toLocalDateTime()
+                rs.getTimestamp("contract_created_at").toLocalDateTime(),
+                rs.getInt("call_amount"),
+                rs.getInt("message_amount"),
+                rs.getInt("data_amount")
             ))
             .build();
     }
 
     @Bean
     @StepScope
-    public PagingQueryProvider pagingQueryProvider(@Value("#{stepExecutionContext['lastId']}") String lastId) {
+    public PagingQueryProvider pagingQueryProvider(
+        @Value("#{stepExecutionContext['lastId']}") String lastId,
+        @Value("#{jobParameters['date']}") String dateParam
+    ) {
         PostgresPagingQueryProvider queryProvider = new PostgresPagingQueryProvider();
         queryProvider.setSelectClause("""
     SELECT
@@ -123,7 +143,10 @@ public class BillingBatch {
         p.base_fee       AS base_fee,
         p.premium_yn     AS premium_yn,
         c.term_year      AS term_year,
-        c.created_at     AS contract_created_at
+        c.created_at     AS contract_created_at,
+        ut.call_amount   AS call_amount,
+        ut.message_amount AS message_amount,
+        ut.data_amount   AS data_amount
     """);
 
         queryProvider.setFromClause("""
@@ -131,10 +154,18 @@ public class BillingBatch {
             JOIN registration r ON r.public_info_id = pi.id
             JOIN plan p         ON p.id = r.plan_id
             LEFT OUTER JOIN contract c     ON c.register_id = r.id
-    """);
+            JOIN usage_time ut  ON ut.public_info_id = pi.id
+   """);
 
         if (lastId != null) {
-            queryProvider.setWhereClause("WHERE pi.id > :lastId");
+            queryProvider.setWhereClause("""
+            WHERE ut.usage_date = :usageDate
+              AND pi.id > :lastId
+        """);
+        } else {
+            queryProvider.setWhereClause("""
+            WHERE ut.usage_date = :usageDate
+        """);
         }
 
         queryProvider.setSortKeys(Map.of("public_info_id", Order.ASCENDING));
