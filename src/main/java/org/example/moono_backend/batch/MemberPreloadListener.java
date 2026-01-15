@@ -33,9 +33,6 @@ public class MemberPreloadListener implements ItemReadListener<BillingSourceRow>
     // 2. Chunk 비즈니스 로직(Processor)이 시작되기 직전에 실행
     @Override
     public void beforeChunk(ChunkContext context) {
-        // 이 시점에는 아직 afterRead가 실행되기 전이므로,
-        // 실제 데이터 로딩은 Processor가 호출되기 직전인 ItemProcessListener나
-        // 혹은 아래처럼 첫 데이터 처리 시점에 하기 위해 비워둡니다.
     }
 
     // 3. Processor에서 캐시를 참조할 수 있도록 제공하는 메서드
