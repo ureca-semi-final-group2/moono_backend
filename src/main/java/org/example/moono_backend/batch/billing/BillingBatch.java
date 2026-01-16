@@ -1,6 +1,7 @@
 package org.example.moono_backend.batch.billing;
 
 import java.sql.Date;
+import java.sql.Timestamp;
 import java.sql.Types;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -123,16 +124,27 @@ public class BillingBatch {
                 .queryProvider(queryProvider)
                 .parameterValues(params)
                 .pageSize(CHUNK_SIZE)
-                .rowMapper((rs, rowNum) -> new BillingSourceRow(
-                        rs.getString("public_info_id"),
-                        rs.getInt("base_fee"),
-                        rs.getLong("plan_id"),
-                        rs.getBoolean("premium_yn"),
-                        rs.getInt("term_year"),
-                        rs.getTimestamp("contract_created_at").toLocalDateTime(),
-                        rs.getInt("call_amount"),
-                        rs.getInt("message_amount"),
-                        rs.getInt("data_amount")))
+                .rowMapper((rs, rowNum) ->{
+                    // null 처리를 위한 안전한 조회
+                    Integer termYear = rs.getObject("term_year", Integer.class); // null 가능
+
+                    Timestamp contractCreatedAtTs = rs.getTimestamp("contract_created_at");
+                    LocalDateTime contractCreatedAt = contractCreatedAtTs != null
+                            ? contractCreatedAtTs.toLocalDateTime()
+                            : null; // null 가능
+
+                    return new BillingSourceRow(
+                            rs.getString("public_info_id"),
+                            rs.getInt("base_fee"),
+                            rs.getLong("plan_id"),
+                            rs.getBoolean("premium_yn"),
+                            termYear, // Integer (nullable)
+                            contractCreatedAt, // LocalDateTime (nullable)
+                            rs.getInt("call_amount"),
+                            rs.getInt("message_amount"),
+                            rs.getInt("data_amount")
+                    );
+                })
                 .build();
     }
 
