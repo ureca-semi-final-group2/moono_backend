@@ -71,111 +71,107 @@ public class BillingBatch {
     @Bean
     public Job billingJob(Step discountStep) {
         return new JobBuilder("billingJob", jobRepository)
-            .start(discountStep)
-            .build();
+                .start(discountStep)
+                .build();
     }
 
     @Bean
     public Step discountStep(
-        JdbcPagingItemReader<BillingSourceRow> billingSourceReader,
-        ItemProcessor<BillingSourceRow, BillingWriteItem> billingProcessor,
-        CompositeItemWriter<BillingWriteItem> billingCompositeWriter,
-        LastIdListener lastIdStepListener,
-        ChunkTimingListener<BillingSourceRow, BillingWriteItem> chunkTimingListener,
-        MemberPreloadListener memberPreloadListener) {
+            JdbcPagingItemReader<BillingSourceRow> billingSourceReader,
+            ItemProcessor<BillingSourceRow, BillingWriteItem> billingProcessor,
+            CompositeItemWriter<BillingWriteItem> billingCompositeWriter,
+            LastIdListener lastIdStepListener,
+            ChunkTimingListener<BillingSourceRow, BillingWriteItem> chunkTimingListener,
+            MemberPreloadListener memberPreloadListener) {
         return new StepBuilder("discountStep", jobRepository)
-            .<BillingSourceRow, BillingWriteItem>chunk(CHUNK_SIZE, platformTransactionManager)
-            .reader(billingSourceReader)
-            .processor(billingProcessor)
-            .writer(billingCompositeWriter) // 복합 Writer
-            .listener((StepExecutionListener) lastIdStepListener)
-            .listener((ItemWriteListener<? super BillingWriteItem>) lastIdStepListener)
-            .listener((StepExecutionListener) chunkTimingListener)
-            .listener((ChunkListener) chunkTimingListener)
-            .listener((ItemReadListener<? super BillingSourceRow>) chunkTimingListener)
-            .listener((ItemProcessListener<? super BillingSourceRow, ? super BillingWriteItem>) chunkTimingListener)
-            .listener((ItemWriteListener<? super BillingWriteItem>) chunkTimingListener)
-            // memberPreloadListener 등록
-            .listener((ItemReadListener<? super BillingSourceRow>) memberPreloadListener)
-            .listener((ChunkListener) memberPreloadListener)
-            .build();
+                .<BillingSourceRow, BillingWriteItem>chunk(CHUNK_SIZE, platformTransactionManager)
+                .reader(billingSourceReader)
+                .processor(billingProcessor)
+                .writer(billingCompositeWriter) // 복합 Writer
+                .listener((StepExecutionListener) lastIdStepListener)
+                .listener((ItemWriteListener<? super BillingWriteItem>) lastIdStepListener)
+                .listener((StepExecutionListener) chunkTimingListener)
+                .listener((ChunkListener) chunkTimingListener)
+                .listener((ItemReadListener<? super BillingSourceRow>) chunkTimingListener)
+                .listener((ItemProcessListener<? super BillingSourceRow, ? super BillingWriteItem>) chunkTimingListener)
+                .listener((ItemWriteListener<? super BillingWriteItem>) chunkTimingListener)
+                // memberPreloadListener 등록
+                .listener((ItemReadListener<? super BillingSourceRow>) memberPreloadListener)
+                .listener((ChunkListener) memberPreloadListener)
+                .build();
     }
 
     @Bean
     @StepScope
     public JdbcPagingItemReader<BillingSourceRow> billingSourceReader(
-        DataSource dataSource,
-        PagingQueryProvider queryProvider,
-        @Value("#{stepExecutionContext['lastId']}") String lastId,
-        @Value("#{jobParameters['date']}") String dateParam
-    ) {
+            DataSource dataSource,
+            PagingQueryProvider queryProvider,
+            @Value("#{stepExecutionContext['lastId']}") String lastId,
+            @Value("#{jobParameters['date']}") String dateParam) {
 
-        //sql에서 이해하는 걸로 변경
-        LocalDate usageDate= LocalDate.parse(dateParam);
-        Map<String,Object> params = new HashMap<>();
+        // sql에서 이해하는 걸로 변경
+        LocalDate usageDate = LocalDate.parse(dateParam);
+        Map<String, Object> params = new HashMap<>();
         params.put("usageDate", Date.valueOf(usageDate));
         if (lastId != null) {
             params.put("lastId", lastId);
         }
 
-
         return new JdbcPagingItemReaderBuilder<BillingSourceRow>()
-            .name("billingSourceReader")
-            .dataSource(dataSource)
-            .queryProvider(queryProvider)
-            .parameterValues(params)
-            .pageSize(CHUNK_SIZE)
-            .rowMapper((rs, rowNum) -> new BillingSourceRow(
-                rs.getString("public_info_id"),
-                rs.getInt("base_fee"),
-                rs.getLong("plan_id"),
-                rs.getBoolean("premium_yn"),
-                rs.getInt("term_year"),
-                rs.getTimestamp("contract_created_at").toLocalDateTime(),
-                rs.getInt("call_amount"),
-                rs.getInt("message_amount"),
-                rs.getInt("data_amount")
-            ))
-            .build();
+                .name("billingSourceReader")
+                .dataSource(dataSource)
+                .queryProvider(queryProvider)
+                .parameterValues(params)
+                .pageSize(CHUNK_SIZE)
+                .rowMapper((rs, rowNum) -> new BillingSourceRow(
+                        rs.getString("public_info_id"),
+                        rs.getInt("base_fee"),
+                        rs.getLong("plan_id"),
+                        rs.getBoolean("premium_yn"),
+                        rs.getInt("term_year"),
+                        rs.getTimestamp("contract_created_at").toLocalDateTime(),
+                        rs.getInt("call_amount"),
+                        rs.getInt("message_amount"),
+                        rs.getInt("data_amount")))
+                .build();
     }
 
     @Bean
     @StepScope
     public PagingQueryProvider pagingQueryProvider(
-        @Value("#{stepExecutionContext['lastId']}") String lastId,
-        @Value("#{jobParameters['date']}") String dateParam
-    ) {
+            @Value("#{stepExecutionContext['lastId']}") String lastId,
+            @Value("#{jobParameters['date']}") String dateParam) {
         PostgresPagingQueryProvider queryProvider = new PostgresPagingQueryProvider();
         queryProvider.setSelectClause("""
-    SELECT
-        pi.id            AS public_info_id,
-        p.base_fee       AS base_fee,
-        p.premium_yn     AS premium_yn,
-        p.id AS plan_id,
-        c.term_year      AS term_year,
-        c.created_at     AS contract_created_at,
-        ut.call_amount   AS call_amount,
-        ut.message_amount AS message_amount,
-        ut.data_amount   AS data_amount
-    """);
+                SELECT
+                    pi.id            AS public_info_id,
+                    p.base_fee       AS base_fee,
+                    p.premium_yn     AS premium_yn,
+                    p.id AS plan_id,
+                    c.term_year      AS term_year,
+                    c.created_at     AS contract_created_at,
+                    ut.call_amount   AS call_amount,
+                    ut.message_amount AS message_amount,
+                    ut.data_amount   AS data_amount
+                """);
 
         queryProvider.setFromClause("""
-            FROM public_info pi
-            JOIN registration r ON r.public_info_id = pi.id
-            JOIN plan p         ON p.id = r.plan_id
-            LEFT OUTER JOIN contract c     ON c.register_id = r.id
-            JOIN usage_time ut  ON ut.public_info_id = pi.id
-   """);
+                         FROM public_info pi
+                         JOIN registration r ON r.public_info_id = pi.id
+                         JOIN plan p         ON p.id = r.plan_id
+                         LEFT OUTER JOIN contract c     ON c.register_id = r.id
+                         JOIN usage_time ut  ON ut.public_info_id = pi.id
+                """);
 
         if (lastId != null) {
             queryProvider.setWhereClause("""
-            WHERE ut.usage_date = :usageDate
-              AND pi.id > :lastId
-        """);
+                        WHERE ut.usage_date = :usageDate
+                          AND pi.id > :lastId
+                    """);
         } else {
             queryProvider.setWhereClause("""
-            WHERE ut.usage_date = :usageDate
-        """);
+                        WHERE ut.usage_date = :usageDate
+                    """);
         }
 
         queryProvider.setSortKeys(Map.of("public_info_id", Order.ASCENDING));
@@ -183,14 +179,13 @@ public class BillingBatch {
         return queryProvider;
     }
 
-
     @Bean
     @StepScope
     public ItemProcessor<BillingSourceRow, BillingWriteItem> billingProcessor(
-        @Value("#{jobParameters['now']}") String nowParam,
-        MemberPreloadListener memberPreloadListener,
-        PlanDiscountService planDiscountService) {
-        LocalDateTime now =LocalDateTime.now();
+            @Value("#{jobParameters['now']}") String nowParam,
+            MemberPreloadListener memberPreloadListener,
+            PlanDiscountService planDiscountService) {
+        LocalDateTime now = LocalDateTime.now();
 
         return row -> {
             int billingFee = row.baseFee();
@@ -203,14 +198,14 @@ public class BillingBatch {
             List<DiscountInfo> contractDiscounts = contractDiscountService.calculateContractDiscounts(row, now);
             discountInfoList.addAll(contractDiscounts);
 
-            DiscountInfo birthdayMonthDiscount = eventDiscountService.birthdayMonthDiscount(memberCredential, row.baseFee());
+            DiscountInfo birthdayMonthDiscount = eventDiscountService.birthdayMonthDiscount(memberCredential,
+                    row.baseFee());
             if (birthdayMonthDiscount != null) {
                 discountInfoList.add(birthdayMonthDiscount);
             }
 
-            //요금제 별 과금 조회
-            List<OverageChargeInfo> overageChargeInfos=planDiscountService.calculatePlanDiscounts(row);
-
+            // 요금제 별 과금 조회
+            List<OverageChargeInfo> overageChargeInfos = planDiscountService.calculatePlanDiscounts(row);
 
             // 할인 금액 합산
             int totalDiscount = discountInfoList.stream()
@@ -221,23 +216,23 @@ public class BillingBatch {
             int billingFeeResult = Math.max(0, billingFee - totalDiscount);
 
             Billing createdBilling = Billing.builder()
-                .id(IdGenerator.generate())
-                .publicInfoId(row.publicInfoId())
-                .usageId(1L) // TODO: 실제 usage_time id 필요하면 Reader에서 조인해서 가져오세요
-                .billingFee(billingFeeResult)
-                .status(PayStatus.UNPAID)
-                .sendStatus(SendStatus.PENDING)
-                .billingDate(now)
-                .paidDate(null)
-                .build();
+                    .id(IdGenerator.generate())
+                    .publicInfoId(row.publicInfoId())
+                    .usageId(1L) // TODO: 실제 usage_time id 필요하면 Reader에서 조인해서 가져오세요
+                    .billingFee(billingFeeResult)
+                    .status(PayStatus.UNPAID)
+                    .sendStatus(SendStatus.CREATED)
+                    .billingDate(now)
+                    .paidDate(null)
+                    .build();
 
             List<DiscountEntity> discountEntities = discountInfoList.stream()
                     .map(d -> DiscountEntity.builder()
                             .billingId(createdBilling.getId())
                             .discountName(d.discountName())
                             .discountAmount(d.discountAmount())
-                            .build()
-                    ).toList();
+                            .build())
+                    .toList();
             // BillingWriteItem 첫 번째 값은 lastId 갱신용으로 member_id 넣는 걸 추천
             return new BillingWriteItem(1L, createdBilling, discountEntities);
         };
@@ -246,12 +241,11 @@ public class BillingBatch {
     @Bean
     CompositeItemWriter<BillingWriteItem> billingCompositeWriter(
             JdbcBatchItemWriter<BillingWriteItem> billingWriter,
-            ItemWriter<BillingWriteItem> discountWriter
-    ) {
+            ItemWriter<BillingWriteItem> discountWriter) {
         CompositeItemWriter<BillingWriteItem> w = new CompositeItemWriter<>();
         w.setDelegates(List.of(
-                billingWriter,  // 1. billing insert
-                discountWriter  // 2. discount insert
+                billingWriter, // 1. billing insert
+                discountWriter // 2. discount insert
         ));
         return w;
     }
@@ -259,52 +253,53 @@ public class BillingBatch {
     @Bean
     public JdbcBatchItemWriter<BillingWriteItem> billingWriter(DataSource dataSource) {
         String sql = """
-            INSERT INTO billing (
-                public_info_id,
-                usage_id,
-                billing_fee,
-                status,
-                send_status,
-                billing_date,
-                paid_date
-            )
-            VALUES (
-                :publicInfoId,
-                :usageId,
-                :billingFee,
-                :status,
-                :sendStatus,
-                :billingDate,
-                :paidDate
-            )
-        """;
+                    INSERT INTO billing (
+                        public_info_id,
+                        usage_id,
+                        billing_fee,
+                        status,
+                        send_status,
+                        billing_date,
+                        paid_date
+                    )
+                    VALUES (
+                        :publicInfoId,
+                        :usageId,
+                        :billingFee,
+                        :status,
+                        :sendStatus,
+                        :billingDate,
+                        :paidDate
+                    )
+                """;
 
         return new JdbcBatchItemWriterBuilder<BillingWriteItem>()
-            .dataSource(dataSource)
-            .sql(sql)
-            .itemSqlParameterSourceProvider(item -> {
-                Billing b = item.billing();
-                MapSqlParameterSource p = new MapSqlParameterSource();
+                .dataSource(dataSource)
+                .sql(sql)
+                .itemSqlParameterSourceProvider(item -> {
+                    Billing b = item.billing();
+                    MapSqlParameterSource p = new MapSqlParameterSource();
 
-                p.addValue("publicInfoId", b.getPublicInfoId(), Types.VARCHAR);
-                p.addValue("usageId", b.getUsageId(), Types.BIGINT);
+                    p.addValue("publicInfoId", b.getPublicInfoId(), Types.VARCHAR);
+                    p.addValue("usageId", b.getUsageId(), Types.BIGINT);
 
-                p.addValue("billingFee", b.getBillingFee(), Types.INTEGER);
-                p.addValue("status", b.getStatus() == null ? null : b.getStatus().name(), Types.VARCHAR);
-                p.addValue("sendStatus", b.getSendStatus() == null ? null : b.getSendStatus().name(), Types.VARCHAR);
+                    p.addValue("billingFee", b.getBillingFee(), Types.INTEGER);
+                    p.addValue("status", b.getStatus() == null ? null : b.getStatus().name(), Types.VARCHAR);
+                    p.addValue("sendStatus", b.getSendStatus() == null ? null : b.getSendStatus().name(),
+                            Types.VARCHAR);
 
-                p.addValue("billingDate", b.getBillingDate(), Types.TIMESTAMP);
-                p.addValue("paidDate", b.getPaidDate(), Types.TIMESTAMP);
+                    p.addValue("billingDate", b.getBillingDate(), Types.TIMESTAMP);
+                    p.addValue("paidDate", b.getPaidDate(), Types.TIMESTAMP);
 
-                return p;
-            })
-            .build();
+                    return p;
+                })
+                .build();
     }
 
     @Bean
     public ItemWriter<BillingWriteItem> discountWriter(NamedParameterJdbcTemplate jdbc) {
         String sql = """
-                INSERT INTO discount (billing_id, discount_name, discount_amount) 
+                INSERT INTO discount (billing_id, discount_name, discount_amount)
                 VALUES (:billingId, :discountName, :discountAmount)
                 """;
 
@@ -328,7 +323,6 @@ public class BillingBatch {
             }
         };
     }
-
 
     @Bean
     public ChunkTimingListener<BillingSourceRow, BillingWriteItem> chunkTimingListener() {
