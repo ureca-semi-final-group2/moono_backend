@@ -1,7 +1,6 @@
 package org.example.moono_backend.service;
 
 import java.util.ArrayList;
-import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.moono_backend.batch.dto.BillingSourceRow;
@@ -21,6 +20,10 @@ public class ContractDiscountService {
     private final int PREMIUM_CONTRACT_TERM_YEARS = 2;
 
     public List<DiscountInfo> calculateContractDiscounts(BillingSourceRow row, LocalDateTime now) {
+        if (row.contractCreatedAt() == null) {
+            return List.of();
+        }
+
         LocalDateTime expirationDate = row.contractCreatedAt().plusYears(row.termYear());
         if (expirationDate.isBefore(now)) {
             return List.of();
