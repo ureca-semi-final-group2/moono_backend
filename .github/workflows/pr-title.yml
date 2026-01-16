@@ -14,8 +14,14 @@ jobs:
           ISSUE_KEY=$(echo "$BRANCH" | grep -o 'MOONO-[0-9]*')
           echo "issue_key=$ISSUE_KEY" >> $GITHUB_OUTPUT
 
-      - name: Update PR Title
-        uses: actions-ecosystem/action-update-pull-request-title@v1
-        with:
-          title: "[${{ steps.extract.outputs.issue_key }}] ${{ github.event.pull_request.title }}"
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Update PR title via GitHub API
+        run: |
+          NEW_TITLE="[${{ steps.extract.outputs.issue_key }}] ${{ github.event.pull_request.title }}"
+          PR_NUMBER=${{ github.event.pull_request.number }}
+          echo "Updating PR #$PR_NUMBER title to: $NEW_TITLE"
+
+          curl -X PATCH \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/${{ github.repository }}/pulls/$PR_NUMBER \
+            -d "{\"title\":\"$NEW_TITLE\"}"
