@@ -14,7 +14,7 @@ public class UserDndPolicy {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private Long userId;
+    private String publicInfoId;
 
     private LocalTime startDndTime;
 

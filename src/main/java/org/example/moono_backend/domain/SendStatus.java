@@ -7,7 +7,7 @@ public enum SendStatus {
     // 2. 발송 발행 단계
     SEND_PENDING, // 발송 배치(15, 21일)가 실행되어 카프카에 메시지 프로듀서 시작
 
-    // 3. 발송 처리 단계 (Consumer)
+    // 3. 발송 처리 단계 (Consumer)b
     IN_QUIET_HOUR, // 금칙시간에 걸려 대기 상태
     SENDING, // 금칙시간 x 전송 완료
 
