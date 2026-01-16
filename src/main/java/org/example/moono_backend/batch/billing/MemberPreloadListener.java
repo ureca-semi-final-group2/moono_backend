@@ -1,7 +1,7 @@
-package org.example.moono_backend.batch;
+package org.example.moono_backend.batch.billing;
 
 import lombok.RequiredArgsConstructor;
-import org.example.moono_backend.batch.dto.BillingSourceRow;
+import org.example.moono_backend.batch.billing.dto.BillingSourceRow;
 import org.example.moono_backend.domain.member.MemberCredential;
 import org.example.moono_backend.repository.MemberCredentialRepository;
 import org.springframework.batch.core.ChunkListener;

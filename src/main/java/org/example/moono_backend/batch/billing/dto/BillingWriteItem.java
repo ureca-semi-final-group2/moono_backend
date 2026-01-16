@@ -1,4 +1,4 @@
-package org.example.moono_backend.batch.dto;
+package org.example.moono_backend.batch.billing.dto;
 
 import org.example.moono_backend.domain.Billing;
 import org.example.moono_backend.domain.discount.DiscountEntity;

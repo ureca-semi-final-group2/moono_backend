@@ -1,4 +1,4 @@
-package org.example.moono_backend.batch;
+package org.example.moono_backend.batch.billing;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.ChunkListener;

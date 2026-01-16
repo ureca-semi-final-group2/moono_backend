@@ -1,4 +1,4 @@
-package org.example.moono_backend.batch.dto;
+package org.example.moono_backend.batch.billing.dto;
 
 import java.time.LocalDateTime;
 

@@ -1,6 +1,6 @@
-package org.example.moono_backend.batch;
+package org.example.moono_backend.batch.billing;
 
-import org.example.moono_backend.batch.dto.BillingWriteItem;
+import org.example.moono_backend.batch.billing.dto.BillingWriteItem;
 import org.springframework.batch.core.ItemWriteListener;
 import org.springframework.batch.core.StepExecution;
 import org.springframework.batch.core.StepExecutionListener;

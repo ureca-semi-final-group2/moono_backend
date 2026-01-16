@@ -1,4 +1,4 @@
-package org.example.moono_backend.batch;
+package org.example.moono_backend.batch.billing;
 
 import java.sql.Date;
 import java.sql.Types;
@@ -11,8 +11,8 @@ import java.util.Map;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.example.moono_backend.batch.dto.BillingSourceRow;
-import org.example.moono_backend.batch.dto.BillingWriteItem;
+import org.example.moono_backend.batch.billing.dto.BillingSourceRow;
+import org.example.moono_backend.batch.billing.dto.BillingWriteItem;
 import org.example.moono_backend.domain.Billing;
 import org.example.moono_backend.domain.PayStatus;
 import org.example.moono_backend.domain.SendStatus;
