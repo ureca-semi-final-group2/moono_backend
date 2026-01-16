@@ -1,0 +1,20 @@
+name: Attach Jira Info to PR
+on:
+  pull_request:
+    types: [opened]
+jobs:
+  add-jira-info:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Comment Jira Issue Link
+        uses: actions-cool/issues-helper@v3
+        with:
+          actions: 'create-comment'
+          token: ${{ secrets.GITHUB_TOKEN }}
+          issue-number: ${{ github.event.pull_request.number }}
+          body: |
+            🔗 **Jira Ticket:** [${{ github.event.pull_request.head.ref }}](${{
+              secrets.JIRA_BASE_URL
+            }}/browse/${{
+              github.event.pull_request.head.ref
+            }})

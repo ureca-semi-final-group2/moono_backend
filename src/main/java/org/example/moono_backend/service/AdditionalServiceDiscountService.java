@@ -19,12 +19,13 @@ public class AdditionalServiceDiscountService {
     private final AdditionalServiceSubscriptionRepository additionalServiceSubscriptionRepository;
 
     /**
-     * 특정 사용자의 부가서비스 청구 내역 계산
+     * 특정 사용자(public_info_id)의 부가서비스 청구 내역 계산
      * @param publicInfoId 사용자 ID
      * @param tierName 요금제 등급 (LOW, MID, HIGH)
      * @return 부가서비스별 할인 정보 리스트
      */
     public List<DiscountInfo> calculateAdditionalServiceDiscounts(String publicInfoId, String tierName) {
+        // Registration을 통해 부가서비스 조회
         List<AdditionalServiceSubscription> subscriptions =
                 additionalServiceSubscriptionRepository.findByPublicInfoIdAndActiveYn(publicInfoId, true);
 
@@ -48,4 +49,78 @@ public class AdditionalServiceDiscountService {
         return discountInfos;
     }
 
+    /**
+     * 특정 registration의 부가서비스 청구 내역 계산
+     * @param registrationId 가입 정보 ID
+     * @param tierName 요금제 등급
+     * @return 부가서비스별 할인 정보 리스트
+     */
+    public List<DiscountInfo> calculateAdditionalServiceDiscountsByRegistration(Long registrationId, String tierName) {
+        List<AdditionalServiceSubscription> subscriptions =
+                additionalServiceSubscriptionRepository.findByRegistrationIdAndActiveYn(registrationId, true);
+
+        List<DiscountInfo> discountInfos = new ArrayList<>();
+
+        for (AdditionalServiceSubscription subscription : subscriptions) {
+            try {
+                AdditionalService service = AdditionalService.valueOf(subscription.getServiceCode());
+                int discountAmount = service.getDiscountAmount(tierName);
+
+                discountInfos.add(new DiscountInfo(
+                        service.name(),
+                        service.getDisplayName() + " 등급별 할인",
+                        discountAmount
+                ));
+            } catch (IllegalArgumentException e) {
+                log.warn("Unknown service code: {}", subscription.getServiceCode());
+            }
+        }
+
+        return discountInfos;
+    }
+
+    /**
+     * 부가서비스 총 청구 금액 계산 (할인 적용 후)
+     * @param publicInfoId 사용자 ID
+     * @param tierName 요금제 등급
+     * @return 총 청구 금액
+     */
+    public int calculateTotalAdditionalServiceFee(String publicInfoId, String tierName) {
+        List<AdditionalServiceSubscription> subscriptions =
+                additionalServiceSubscriptionRepository.findByPublicInfoIdAndActiveYn(publicInfoId, true);
+
+        int totalFee = 0;
+
+        for (AdditionalServiceSubscription subscription : subscriptions) {
+            try {
+                AdditionalService service = AdditionalService.valueOf(subscription.getServiceCode());
+                totalFee += service.getFinalPrice(tierName);
+            } catch (IllegalArgumentException e) {
+                log.warn("Unknown service code: {}", subscription.getServiceCode());
+            }
+        }
+
+        return totalFee;
+    }
+
+    /**
+     * registration 기반 부가서비스 총 청구 금액 계산
+     */
+    public int calculateTotalAdditionalServiceFeeByRegistration(Long registrationId, String tierName) {
+        List<AdditionalServiceSubscription> subscriptions =
+                additionalServiceSubscriptionRepository.findByRegistrationIdAndActiveYn(registrationId, true);
+
+        int totalFee = 0;
+
+        for (AdditionalServiceSubscription subscription : subscriptions) {
+            try {
+                AdditionalService service = AdditionalService.valueOf(subscription.getServiceCode());
+                totalFee += service.getFinalPrice(tierName);
+            } catch (IllegalArgumentException e) {
+                log.warn("Unknown service code: {}", subscription.getServiceCode());
+            }
+        }
+
+        return totalFee;
+    }
 }

@@ -1,6 +1,7 @@
 package org.example.moono_backend.batch.billing;
 
 import java.sql.Date;
+import java.sql.Timestamp;
 import java.sql.Types;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -11,6 +12,7 @@ import java.util.Map;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.example.moono_backend.batch.BatchMetricsListener;
 import org.example.moono_backend.batch.billing.dto.BillingSourceRow;
 import org.example.moono_backend.batch.billing.dto.BillingWriteItem;
 import org.example.moono_backend.domain.Billing;
@@ -69,9 +71,10 @@ public class BillingBatch {
     private static final int CHUNK_SIZE = 1000;
 
     @Bean
-    public Job billingJob(Step discountStep) {
+    public Job billingJob(Step discountStep, BatchMetricsListener batchMetricsListener) {
         return new JobBuilder("billingJob", jobRepository)
                 .start(discountStep)
+                .listener(batchMetricsListener)
                 .build();
     }
 
@@ -123,16 +126,27 @@ public class BillingBatch {
                 .queryProvider(queryProvider)
                 .parameterValues(params)
                 .pageSize(CHUNK_SIZE)
-                .rowMapper((rs, rowNum) -> new BillingSourceRow(
-                        rs.getString("public_info_id"),
-                        rs.getInt("base_fee"),
-                        rs.getLong("plan_id"),
-                        rs.getBoolean("premium_yn"),
-                        rs.getInt("term_year"),
-                        rs.getTimestamp("contract_created_at").toLocalDateTime(),
-                        rs.getInt("call_amount"),
-                        rs.getInt("message_amount"),
-                        rs.getInt("data_amount")))
+                .rowMapper((rs, rowNum) ->{
+                    // null 처리를 위한 안전한 조회
+                    Integer termYear = rs.getObject("term_year", Integer.class); // null 가능
+
+                    Timestamp contractCreatedAtTs = rs.getTimestamp("contract_created_at");
+                    LocalDateTime contractCreatedAt = contractCreatedAtTs != null
+                            ? contractCreatedAtTs.toLocalDateTime()
+                            : null; // null 가능
+
+                    return new BillingSourceRow(
+                            rs.getString("public_info_id"),
+                            rs.getInt("base_fee"),
+                            rs.getLong("plan_id"),
+                            rs.getBoolean("premium_yn"),
+                            termYear, // Integer (nullable)
+                            contractCreatedAt, // LocalDateTime (nullable)
+                            rs.getInt("call_amount"),
+                            rs.getInt("message_amount"),
+                            rs.getInt("data_amount")
+                    );
+                })
                 .build();
     }
 
@@ -142,39 +156,47 @@ public class BillingBatch {
             @Value("#{stepExecutionContext['lastId']}") String lastId,
             @Value("#{jobParameters['date']}") String dateParam) {
         PostgresPagingQueryProvider queryProvider = new PostgresPagingQueryProvider();
+
         queryProvider.setSelectClause("""
-                SELECT
-                    pi.id            AS public_info_id,
-                    p.base_fee       AS base_fee,
-                    p.premium_yn     AS premium_yn,
-                    p.id AS plan_id,
-                    c.term_year      AS term_year,
-                    c.created_at     AS contract_created_at,
-                    ut.call_amount   AS call_amount,
-                    ut.message_amount AS message_amount,
-                    ut.data_amount   AS data_amount
-                """);
+    SELECT
+    t.sort_id AS sort_id,
+        t.public_info_id        AS public_info_id,
+        t.base_fee              AS base_fee,
+        t.premium_yn            AS premium_yn,
+        t.plan_id               AS plan_id,
+        t.term_year             AS term_year,
+        t.contract_created_at   AS contract_created_at,
+        t.call_amount           AS call_amount,
+        t.message_amount        AS message_amount,
+        t.data_amount           AS data_amount
+""");
 
         queryProvider.setFromClause("""
-                         FROM public_info pi
-                         JOIN registration r ON r.public_info_id = pi.id
-                         JOIN plan p         ON p.id = r.plan_id
-                         LEFT OUTER JOIN contract c     ON c.register_id = r.id
-                         JOIN usage_time ut  ON ut.public_info_id = pi.id
-                """);
-
+    FROM (
+        SELECT
+            pi.id               AS sort_id,
+            pi.id               AS public_info_id,
+            p.base_fee          AS base_fee,
+            p.premium_yn        AS premium_yn,
+            p.id                AS plan_id,
+            c.term_year         AS term_year,
+            c.created_at        AS contract_created_at,
+            ut.call_amount      AS call_amount,
+            ut.message_amount   AS message_amount,
+            ut.data_amount      AS data_amount
+        FROM public_info pi
+        JOIN registration r ON r.public_info_id = pi.id
+        JOIN plan p         ON p.id = r.plan_id
+        LEFT JOIN contract c ON c.register_id = r.id
+        JOIN usage_time ut  ON ut.public_info_id = pi.id
+        WHERE ut.usage_date = :usageDate
+    ) t
+""");
         if (lastId != null) {
-            queryProvider.setWhereClause("""
-                        WHERE ut.usage_date = :usageDate
-                          AND pi.id > :lastId
-                    """);
-        } else {
-            queryProvider.setWhereClause("""
-                        WHERE ut.usage_date = :usageDate
-                    """);
+            queryProvider.setWhereClause("WHERE sort_id > :lastId");
         }
+        queryProvider.setSortKeys(Map.of("sort_id", Order.ASCENDING));
 
-        queryProvider.setSortKeys(Map.of("public_info_id", Order.ASCENDING));
 
         return queryProvider;
     }
@@ -206,7 +228,6 @@ public class BillingBatch {
 
             // 요금제 별 과금 조회
             List<OverageChargeInfo> overageChargeInfos = planDiscountService.calculatePlanDiscounts(row);
-
             // 할인 금액 합산
             int totalDiscount = discountInfoList.stream()
                     .mapToInt(DiscountInfo::discountAmount)
