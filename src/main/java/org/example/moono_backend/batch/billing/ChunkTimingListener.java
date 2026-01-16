@@ -22,11 +22,11 @@ import org.springframework.batch.item.Chunk;
  */
 @Slf4j
 public class ChunkTimingListener<I, O>
-    implements ChunkListener,
-               ItemReadListener<I>,
-               ItemProcessListener<I, O>,
-               ItemWriteListener<O>,
-               StepExecutionListener {
+        implements ChunkListener,
+        ItemReadListener<I>,
+        ItemProcessListener<I, O>,
+        ItemWriteListener<O>,
+        StepExecutionListener {
 
     private static final String KEY = ChunkTimingListener.class.getName();
 
@@ -57,12 +57,11 @@ public class ChunkTimingListener<I, O>
     @Override
     public ExitStatus afterStep(StepExecution stepExecution) {
         log.info("[Batch] Step end: {}, read={}, write={}, commit={}, rollback={}",
-            stepExecution.getStepName(),
-            stepExecution.getReadCount(),
-            stepExecution.getWriteCount(),
-            stepExecution.getCommitCount(),
-            stepExecution.getRollbackCount()
-        );
+                stepExecution.getStepName(),
+                stepExecution.getReadCount(),
+                stepExecution.getWriteCount(),
+                stepExecution.getCommitCount(),
+                stepExecution.getRollbackCount());
         return stepExecution.getExitStatus();
     }
 
@@ -91,20 +90,19 @@ public class ChunkTimingListener<I, O>
         int commitCount = (stepExecution != null) ? (int) stepExecution.getCommitCount() : -1;
 
         log.info(
-            "[ChunkTiming] step={}, commitCount={}, chunkTotal={} ms | read={} ms({} items) | process={} ms({} items) | write={} ms({} items)",
-            (stepExecution != null ? stepExecution.getStepName() : "unknown"),
-            commitCount,
-            nsToMs(chunkTotalNs),
-            nsToMs(readTotalNs), readCount,
-            nsToMs(processTotalNs), processCount,
-            nsToMs(writeTotalNs), writeCount
-        );
+                "[ChunkTiming] step={}, commitCount={}, chunkTotal={} ms | read={} ms({} items) | process={} ms({} items) | write={} ms({} items)",
+                (stepExecution != null ? stepExecution.getStepName() : "unknown"),
+                commitCount,
+                nsToMs(chunkTotalNs),
+                nsToMs(readTotalNs), readCount,
+                nsToMs(processTotalNs), processCount,
+                nsToMs(writeTotalNs), writeCount);
     }
 
     @Override
     public void afterChunkError(ChunkContext context) {
         log.warn("[ChunkTiming] chunk error occurred. step={}",
-            (stepExecution != null ? stepExecution.getStepName() : "unknown"));
+                (stepExecution != null ? stepExecution.getStepName() : "unknown"));
     }
 
     // -------- Read timing --------

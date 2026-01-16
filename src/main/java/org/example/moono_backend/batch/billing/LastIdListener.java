@@ -28,9 +28,9 @@ public class LastIdListener implements StepExecutionListener, ItemWriteListener<
         }
 
         String lastPublicInfoId = items.getItems().stream()
-            .map(item -> item.billing().getPublicInfoId())
-            .max(String::compareTo)
-            .orElse(null);
+                .map(item -> item.billing().getPublicInfoId())
+                .max(String::compareTo)
+                .orElse(null);
 
         if (lastPublicInfoId != null) {
             stepExecution.getExecutionContext().putString(KEY_LAST_ID, lastPublicInfoId);

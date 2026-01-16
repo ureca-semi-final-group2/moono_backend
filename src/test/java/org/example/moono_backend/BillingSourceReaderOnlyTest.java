@@ -9,8 +9,8 @@ import java.time.LocalDateTime;
 
 import javax.sql.DataSource;
 
-import org.example.moono_backend.batch.BillingBatch;
-import org.example.moono_backend.batch.dto.BillingSourceRow;
+import org.example.moono_backend.batch.billing.BillingBatch;
+import org.example.moono_backend.batch.billing.dto.BillingSourceRow;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -32,14 +32,15 @@ class BillingSourceReaderOnlyTest {
     private JdbcTemplate jdbcTemplate;
     private BillingBatch billingBatch;
 
-    static final String DATE_PARAM="2025-10-10";
-    static final String LAST_ID="A000";
+    static final String DATE_PARAM = "2025-10-10";
+    static final String LAST_ID = "A000";
+
     @BeforeEach
     void setUp() {
         this.context = new AnnotationConfigApplicationContext(TestDataSourceConfiguration.class);
         this.dataSource = context.getBean(DataSource.class);
         this.jdbcTemplate = new JdbcTemplate(this.dataSource);
-        this.billingBatch = new BillingBatch(null, null,null, null);
+        this.billingBatch = new BillingBatch(null, null, null, null);
         seed();
     }
 
@@ -53,11 +54,11 @@ class BillingSourceReaderOnlyTest {
     @Test
     void lastId가_null이면_첫번째_청크가_읽힌다() throws Exception {
         // given
-        String lastId=null;
-        PagingQueryProvider queryProvider = billingBatch.pagingQueryProvider(lastId,DATE_PARAM);
+        String lastId = null;
+        PagingQueryProvider queryProvider = billingBatch.pagingQueryProvider(lastId, DATE_PARAM);
 
-        JdbcPagingItemReader<BillingSourceRow> reader =
-            billingBatch.billingSourceReader(dataSource, queryProvider, lastId,DATE_PARAM);
+        JdbcPagingItemReader<BillingSourceRow> reader = billingBatch.billingSourceReader(dataSource, queryProvider,
+                lastId, DATE_PARAM);
 
         reader.afterPropertiesSet();
         reader.open(new ExecutionContext());
@@ -77,10 +78,10 @@ class BillingSourceReaderOnlyTest {
     @Test
     void lastId보다_큰_public_info만_정상적으로_조인되어_읽힌다() throws Exception {
         // given
-        PagingQueryProvider queryProvider = billingBatch.pagingQueryProvider(LAST_ID,DATE_PARAM);
+        PagingQueryProvider queryProvider = billingBatch.pagingQueryProvider(LAST_ID, DATE_PARAM);
 
-        JdbcPagingItemReader<BillingSourceRow> reader =
-            billingBatch.billingSourceReader(dataSource, queryProvider, LAST_ID,DATE_PARAM);
+        JdbcPagingItemReader<BillingSourceRow> reader = billingBatch.billingSourceReader(dataSource, queryProvider,
+                LAST_ID, DATE_PARAM);
 
         reader.afterPropertiesSet();
         reader.open(new ExecutionContext());
@@ -111,8 +112,6 @@ class BillingSourceReaderOnlyTest {
         assertThat(r2.contractCreatedAt()).isEqualTo(LocalDateTime.of(2025, 6, 1, 0, 0));
     }
 
-
-
     private void seed() {
         // public_info
         jdbcTemplate.update("INSERT INTO public_info (id, family_info_id) VALUES (?, ?)", "A000", 10L);
@@ -124,38 +123,35 @@ class BillingSourceReaderOnlyTest {
         jdbcTemplate.update("INSERT INTO plan (id, base_fee, premium_yn) VALUES (?, ?, ?)", 2L, 7000, false);
 
         // registration (id는 bigint)
-        jdbcTemplate.update("INSERT INTO registration (id, public_info_id, plan_id) VALUES (?, ?, ?)", 101L, "A000", 1L);
-        jdbcTemplate.update("INSERT INTO registration (id, public_info_id, plan_id) VALUES (?, ?, ?)", 102L, "A001", 1L);
-        jdbcTemplate.update("INSERT INTO registration (id, public_info_id, plan_id) VALUES (?, ?, ?)", 103L, "B001", 2L);
+        jdbcTemplate.update("INSERT INTO registration (id, public_info_id, plan_id) VALUES (?, ?, ?)", 101L, "A000",
+                1L);
+        jdbcTemplate.update("INSERT INTO registration (id, public_info_id, plan_id) VALUES (?, ?, ?)", 102L, "A001",
+                1L);
+        jdbcTemplate.update("INSERT INTO registration (id, public_info_id, plan_id) VALUES (?, ?, ?)", 103L, "B001",
+                2L);
 
         // contract (register_id로 조인)
         jdbcTemplate.update(
-            "INSERT INTO contract (id, register_id, term_year, created_at) VALUES (?, ?, ?, ?)",
-            201L, 101L, 2, Timestamp.valueOf(LocalDateTime.of(2024, 1, 1, 0, 0))
-        );
+                "INSERT INTO contract (id, register_id, term_year, created_at) VALUES (?, ?, ?, ?)",
+                201L, 101L, 2, Timestamp.valueOf(LocalDateTime.of(2024, 1, 1, 0, 0)));
         jdbcTemplate.update(
-            "INSERT INTO contract (id, register_id, term_year, created_at) VALUES (?, ?, ?, ?)",
-            202L, 102L, 2, Timestamp.valueOf(LocalDateTime.of(2025, 1, 1, 0, 0))
-        );
+                "INSERT INTO contract (id, register_id, term_year, created_at) VALUES (?, ?, ?, ?)",
+                202L, 102L, 2, Timestamp.valueOf(LocalDateTime.of(2025, 1, 1, 0, 0)));
         jdbcTemplate.update(
-            "INSERT INTO contract (id, register_id, term_year, created_at) VALUES (?, ?, ?, ?)",
-            203L, 103L, 1, Timestamp.valueOf(LocalDateTime.of(2025, 6, 1, 0, 0))
-        );
+                "INSERT INTO contract (id, register_id, term_year, created_at) VALUES (?, ?, ?, ?)",
+                203L, 103L, 1, Timestamp.valueOf(LocalDateTime.of(2025, 6, 1, 0, 0)));
 
         LocalDate d1 = LocalDate.of(2025, 10, 10);
 
         jdbcTemplate.update(
-            "INSERT INTO usage_time (public_info_id, usage_date, call_amount, message_amount, data_amount) VALUES (?, ?, ?, ?, ?)",
-            "A000", Date.valueOf(d1), 100, 10, 5000
-        );
+                "INSERT INTO usage_time (public_info_id, usage_date, call_amount, message_amount, data_amount) VALUES (?, ?, ?, ?, ?)",
+                "A000", Date.valueOf(d1), 100, 10, 5000);
         jdbcTemplate.update(
-            "INSERT INTO usage_time (public_info_id, usage_date, call_amount, message_amount, data_amount) VALUES (?, ?, ?, ?, ?)",
-            "A001", Date.valueOf(d1), 200, 20, 10000
-        );
+                "INSERT INTO usage_time (public_info_id, usage_date, call_amount, message_amount, data_amount) VALUES (?, ?, ?, ?, ?)",
+                "A001", Date.valueOf(d1), 200, 20, 10000);
         jdbcTemplate.update(
-            "INSERT INTO usage_time (public_info_id, usage_date, call_amount, message_amount, data_amount) VALUES (?, ?, ?, ?, ?)",
-            "B001", Date.valueOf(d1), 300, 30, 15000
-        );
+                "INSERT INTO usage_time (public_info_id, usage_date, call_amount, message_amount, data_amount) VALUES (?, ?, ?, ?, ?)",
+                "B001", Date.valueOf(d1), 300, 30, 15000);
     }
 
     @Configuration
@@ -164,53 +160,52 @@ class BillingSourceReaderOnlyTest {
         @Bean
         public DataSource dataSource() {
             return new EmbeddedDatabaseBuilder()
-                .setType(EmbeddedDatabaseType.H2)
-                .setName("testdb;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH")
-                .build();
+                    .setType(EmbeddedDatabaseType.H2)
+                    .setName("testdb;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH")
+                    .build();
         }
 
         @Bean
         public DataSourceInitializer initializer(DataSource dataSource) {
             String ddl = """
-                CREATE TABLE public_info (
-                    id             VARCHAR(255) PRIMARY KEY,
-                    family_info_id BIGINT
-                );
+                    CREATE TABLE public_info (
+                        id             VARCHAR(255) PRIMARY KEY,
+                        family_info_id BIGINT
+                    );
 
-                CREATE TABLE plan (
-                    id         BIGINT PRIMARY KEY,
-                    base_fee   INT NOT NULL,
-                    premium_yn BOOLEAN NOT NULL
-                );
+                    CREATE TABLE plan (
+                        id         BIGINT PRIMARY KEY,
+                        base_fee   INT NOT NULL,
+                        premium_yn BOOLEAN NOT NULL
+                    );
 
-                CREATE TABLE registration (
-                    id            BIGINT PRIMARY KEY,
-                    public_info_id VARCHAR(255) NOT NULL,
-                    plan_id       BIGINT NOT NULL
-                );
+                    CREATE TABLE registration (
+                        id            BIGINT PRIMARY KEY,
+                        public_info_id VARCHAR(255) NOT NULL,
+                        plan_id       BIGINT NOT NULL
+                    );
 
-                CREATE TABLE contract (
-                    id          BIGINT PRIMARY KEY,
-                    register_id BIGINT NOT NULL,
-                    term_year   INT NOT NULL,
-                    created_at  TIMESTAMP NOT NULL
-                );
-                
-                  CREATE TABLE usage_time (
-                      public_info_id VARCHAR(255) NOT NULL,
-                      usage_date     DATE NOT NULL,
-                      call_amount    INT NOT NULL,
-                      message_amount INT NOT NULL,
-                      data_amount    INT NOT NULL,
-                      CONSTRAINT pk_usage_time PRIMARY KEY (public_info_id, usage_date)
-                                );
-                """;
+                    CREATE TABLE contract (
+                        id          BIGINT PRIMARY KEY,
+                        register_id BIGINT NOT NULL,
+                        term_year   INT NOT NULL,
+                        created_at  TIMESTAMP NOT NULL
+                    );
+
+                      CREATE TABLE usage_time (
+                          public_info_id VARCHAR(255) NOT NULL,
+                          usage_date     DATE NOT NULL,
+                          call_amount    INT NOT NULL,
+                          message_amount INT NOT NULL,
+                          data_amount    INT NOT NULL,
+                          CONSTRAINT pk_usage_time PRIMARY KEY (public_info_id, usage_date)
+                                    );
+                    """;
 
             DataSourceInitializer init = new DataSourceInitializer();
             init.setDataSource(dataSource);
 
-            ResourceDatabasePopulator populator =
-                new ResourceDatabasePopulator(new ByteArrayResource(ddl.getBytes()));
+            ResourceDatabasePopulator populator = new ResourceDatabasePopulator(new ByteArrayResource(ddl.getBytes()));
             init.setDatabasePopulator(populator);
 
             return init;
