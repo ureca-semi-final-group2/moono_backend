@@ -1,9 +1,13 @@
 package org.example.moono_backend.batch.dto;
 
 import org.example.moono_backend.domain.Billing;
+import org.example.moono_backend.domain.discount.DiscountEntity;
+
+import java.util.List;
 
 public record BillingWriteItem(
     Long memberCredentialId,
-    Billing billing
+    Billing billing,
+    List<DiscountEntity> discountEntities
 ) {
 }
