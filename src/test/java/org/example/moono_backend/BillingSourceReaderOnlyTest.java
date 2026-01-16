@@ -96,9 +96,7 @@ class BillingSourceReaderOnlyTest {
         assertThat(r2).isNotNull();
         assertThat(r3).isNull();
 
-            int a=0;
-            Integer aa=Integer.valueOf(a);
-       assertThat(r1.publicInfoId()).isEqualTo("A001");
+        assertThat(r1.publicInfoId()).isEqualTo("A001");
         assertThat(r1.baseFee()).isEqualTo(10000);
         assertThat(r1.premiumYn()).isTrue();
         assertThat(r1.termYear()).isEqualTo(2);
