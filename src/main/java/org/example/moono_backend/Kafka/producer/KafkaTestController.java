@@ -1,4 +1,4 @@
-package org.example.moono_backend.kafka.producer;
+package org.example.moono_backend.Kafka.producer;
 
 import org.springframework.web.bind.annotation.RestController;
 
@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 @RestController
 @RequiredArgsConstructor
 public class KafkaTestController {
-    private final KafkaProducerService kafkaProducerService;
+    private final org.example.moono_backend.kafka.producer.KafkaProducerService kafkaProducerService;
 
     @GetMapping("/send")
     public String getMethodName(@RequestParam String msg) {
