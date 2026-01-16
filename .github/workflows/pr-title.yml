@@ -1,0 +1,22 @@
+name: Auto PR Title
+on:
+  pull_request:
+    types: [opened]
+
+jobs:
+  pr-title:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Extract Jira key from branch
+        id: extract
+        run: |
+          BRANCH="${{ github.event.pull_request.head.ref }}"
+          # feat-MOONO-40/xxx → MOONO-40 뽑기
+          ISSUE_KEY=$(echo "$BRANCH" | grep -o 'MOONO-[0-9]*')
+          echo "issue_key=$ISSUE_KEY" >> $GITHUB_OUTPUT
+
+      - name: Update PR title
+        uses: actions-ecosystem/action-update-title@v1
+        with:
+          title: "[${{ steps.extract.outputs.issue_key }}] ${{ github.event.pull_request.title }}"
+          github_token: ${{ secrets.GITHUB_TOKEN }}
