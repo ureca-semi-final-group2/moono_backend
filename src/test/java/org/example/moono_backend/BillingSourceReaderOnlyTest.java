@@ -9,8 +9,9 @@ import java.time.LocalDateTime;
 
 import javax.sql.DataSource;
 
-import org.example.moono_backend.batch.BillingBatch;
-import org.example.moono_backend.batch.dto.BillingSourceRow;
+
+import org.example.moono_backend.batch.billing.BillingBatch;
+import org.example.moono_backend.batch.billing.dto.BillingSourceRow;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -95,7 +96,9 @@ class BillingSourceReaderOnlyTest {
         assertThat(r2).isNotNull();
         assertThat(r3).isNull();
 
-        assertThat(r1.publicInfoId()).isEqualTo("A001");
+            int a=0;
+            Integer aa=Integer.valueOf(a);
+       assertThat(r1.publicInfoId()).isEqualTo("A001");
         assertThat(r1.baseFee()).isEqualTo(10000);
         assertThat(r1.premiumYn()).isTrue();
         assertThat(r1.termYear()).isEqualTo(2);
