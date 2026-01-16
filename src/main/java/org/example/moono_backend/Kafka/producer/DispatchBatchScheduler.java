@@ -1,4 +1,4 @@
-package org.example.moono_backend.Kafka.producer;
+package org.example.moono_backend.kafka.producer;
 
 import org.springframework.stereotype.Component;
 import lombok.RequiredArgsConstructor;

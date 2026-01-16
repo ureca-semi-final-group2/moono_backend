@@ -25,7 +25,7 @@ public class BillingSchedule {
         log.info("MonthlyBilling Schedule start");
 
         SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM");
-        String date = dateFormat.format(new Date())+"-01";
+        String date = dateFormat.format(new Date()) + "-01";
 
         JobParameters jobParameters = new JobParametersBuilder()
                 .addString("date", date)

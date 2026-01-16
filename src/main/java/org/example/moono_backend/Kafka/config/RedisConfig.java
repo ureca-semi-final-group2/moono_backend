@@ -1,4 +1,4 @@
-package org.example.moono_backend.Kafka.config;
+package org.example.moono_backend.kafka.config;
 
 public class RedisConfig {
 

@@ -50,4 +50,5 @@ public class MemberPreloadListener implements ItemReadListener<BillingSourceRow>
     public void afterChunk(ChunkContext context) {
         cache.clear();
         publicInfoIds.clear();
-    }}
+    }
+}

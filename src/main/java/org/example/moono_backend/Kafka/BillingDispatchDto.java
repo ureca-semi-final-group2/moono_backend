@@ -1,7 +1,6 @@
-package org.example.moono_backend.Kafka;
+package org.example.moono_backend.kafka;
 
 import lombok.Data;
-
 import java.util.List;
 
 @Data
@@ -19,6 +18,7 @@ public class BillingDispatchDto {
         private int dispatchDay;
         private boolean isForced;
     }
+
     @Data
     public static class Receiver {
         private String name;
@@ -35,6 +35,7 @@ public class BillingDispatchDto {
         private long vasFee;
         private long discountAmount;
     }
+
     @Data
     public static class Details {
         private List<ServiceItem> additionalServices;
