@@ -18,8 +18,7 @@ public class EmailFailLog {
     private String publicInfoId;
 
     @Enumerated(EnumType.STRING)
-    private String smsStatus;
+    private SmsSendStatus smsStatus;
 
     private String payload; // 카프카 토픽에 담겼던 JSON 데이터 통째로 저장
-
 }
