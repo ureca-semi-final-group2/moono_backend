@@ -2,7 +2,9 @@ package org.example.moono_backend;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.sql.Date;
 import java.sql.Timestamp;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 import javax.sql.DataSource;
@@ -30,6 +32,8 @@ class BillingSourceReaderOnlyTest {
     private JdbcTemplate jdbcTemplate;
     private BillingBatch billingBatch;
 
+    static final String DATE_PARAM="2025-10-10";
+    static final String LAST_ID="A000";
     @BeforeEach
     void setUp() {
         this.context = new AnnotationConfigApplicationContext(TestDataSourceConfiguration.class);
@@ -50,10 +54,10 @@ class BillingSourceReaderOnlyTest {
     void lastId가_null이면_첫번째_청크가_읽힌다() throws Exception {
         // given
         String lastId=null;
-        PagingQueryProvider queryProvider = billingBatch.pagingQueryProvider(lastId);
+        PagingQueryProvider queryProvider = billingBatch.pagingQueryProvider(lastId,DATE_PARAM);
 
         JdbcPagingItemReader<BillingSourceRow> reader =
-            billingBatch.billingSourceReader(dataSource, queryProvider, lastId);
+            billingBatch.billingSourceReader(dataSource, queryProvider, lastId,DATE_PARAM);
 
         reader.afterPropertiesSet();
         reader.open(new ExecutionContext());
@@ -73,11 +77,10 @@ class BillingSourceReaderOnlyTest {
     @Test
     void lastId보다_큰_public_info만_정상적으로_조인되어_읽힌다() throws Exception {
         // given
-        String lastId="A000";
-        PagingQueryProvider queryProvider = billingBatch.pagingQueryProvider(lastId);
+        PagingQueryProvider queryProvider = billingBatch.pagingQueryProvider(LAST_ID,DATE_PARAM);
 
         JdbcPagingItemReader<BillingSourceRow> reader =
-            billingBatch.billingSourceReader(dataSource, queryProvider, lastId);
+            billingBatch.billingSourceReader(dataSource, queryProvider, LAST_ID,DATE_PARAM);
 
         reader.afterPropertiesSet();
         reader.open(new ExecutionContext());
@@ -96,6 +99,9 @@ class BillingSourceReaderOnlyTest {
         assertThat(r1.baseFee()).isEqualTo(10000);
         assertThat(r1.premiumYn()).isTrue();
         assertThat(r1.termYear()).isEqualTo(2);
+        assertThat(r1.callAmount()).isEqualTo(200);
+        assertThat(r1.messageAmount()).isEqualTo(20);
+        assertThat(r1.dataAmount()).isEqualTo(10000);
         assertThat(r1.contractCreatedAt()).isEqualTo(LocalDateTime.of(2025, 1, 1, 0, 0));
 
         assertThat(r2.publicInfoId()).isEqualTo("B001");
@@ -104,6 +110,8 @@ class BillingSourceReaderOnlyTest {
         assertThat(r2.termYear()).isEqualTo(1);
         assertThat(r2.contractCreatedAt()).isEqualTo(LocalDateTime.of(2025, 6, 1, 0, 0));
     }
+
+
 
     private void seed() {
         // public_info
@@ -132,6 +140,21 @@ class BillingSourceReaderOnlyTest {
         jdbcTemplate.update(
             "INSERT INTO contract (id, register_id, term_year, created_at) VALUES (?, ?, ?, ?)",
             203L, 103L, 1, Timestamp.valueOf(LocalDateTime.of(2025, 6, 1, 0, 0))
+        );
+
+        LocalDate d1 = LocalDate.of(2025, 10, 10);
+
+        jdbcTemplate.update(
+            "INSERT INTO usage_time (public_info_id, usage_date, call_amount, message_amount, data_amount) VALUES (?, ?, ?, ?, ?)",
+            "A000", Date.valueOf(d1), 100, 10, 5000
+        );
+        jdbcTemplate.update(
+            "INSERT INTO usage_time (public_info_id, usage_date, call_amount, message_amount, data_amount) VALUES (?, ?, ?, ?, ?)",
+            "A001", Date.valueOf(d1), 200, 20, 10000
+        );
+        jdbcTemplate.update(
+            "INSERT INTO usage_time (public_info_id, usage_date, call_amount, message_amount, data_amount) VALUES (?, ?, ?, ?, ?)",
+            "B001", Date.valueOf(d1), 300, 30, 15000
         );
     }
 
@@ -172,6 +195,15 @@ class BillingSourceReaderOnlyTest {
                     term_year   INT NOT NULL,
                     created_at  TIMESTAMP NOT NULL
                 );
+                
+                  CREATE TABLE usage_time (
+                      public_info_id VARCHAR(255) NOT NULL,
+                      usage_date     DATE NOT NULL,
+                      call_amount    INT NOT NULL,
+                      message_amount INT NOT NULL,
+                      data_amount    INT NOT NULL,
+                      CONSTRAINT pk_usage_time PRIMARY KEY (public_info_id, usage_date)
+                                );
                 """;
 
             DataSourceInitializer init = new DataSourceInitializer();
