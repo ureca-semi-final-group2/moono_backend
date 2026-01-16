@@ -12,6 +12,7 @@ import java.util.Map;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.example.moono_backend.batch.BatchMetricsListener;
 import org.example.moono_backend.batch.billing.dto.BillingSourceRow;
 import org.example.moono_backend.batch.billing.dto.BillingWriteItem;
 import org.example.moono_backend.domain.Billing;
@@ -70,9 +71,10 @@ public class BillingBatch {
     private static final int CHUNK_SIZE = 1000;
 
     @Bean
-    public Job billingJob(Step discountStep) {
+    public Job billingJob(Step discountStep, BatchMetricsListener batchMetricsListener) {
         return new JobBuilder("billingJob", jobRepository)
                 .start(discountStep)
+                .listener(batchMetricsListener)
                 .build();
     }
 
