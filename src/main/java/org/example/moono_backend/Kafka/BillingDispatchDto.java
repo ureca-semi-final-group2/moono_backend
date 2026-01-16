@@ -1,0 +1,56 @@
+package org.example.moono_backend.Kafka;
+
+import lombok.Data;
+
+import java.util.List;
+
+@Data
+public class BillingDispatchDto {
+    private Header header;
+    private Receiver receiver;
+    private BillingSummary billingSummary;
+    private Details details;
+
+    @Data
+    public static class Header {
+        private Long billingId;
+        private Long userId;
+        private String billingMonth;
+        private int dispatchDay;
+        private boolean isForced;
+    }
+    @Data
+    public static class Receiver {
+        private String name;
+        private String email;
+        private String phone;
+    }
+
+    @Data
+    public static class BillingSummary {
+        private long totalAmount;
+        private String dueDate;
+        private long baseFee;
+        private long usageFee;
+        private long vasFee;
+        private long discountAmount;
+    }
+    @Data
+    public static class Details {
+        private List<ServiceItem> additionalServices;
+        private List<DiscountItem> discounts;
+    }
+
+    @Data
+    public static class ServiceItem {
+        private String name;
+        private long price;
+    }
+
+    @Data
+    public static class DiscountItem {
+        private String name;
+        private long amount;
+    }
+
+}

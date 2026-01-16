@@ -38,7 +38,9 @@ dependencies {
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
     testImplementation 'com.h2database:h2'
 
+    //kafka
     implementation 'org.springframework.kafka:spring-kafka'
+    implementation 'com.fasterxml.jackson.core:jackson-databind' //json 문자열 DTO 객체 변환 라이브러리
 
     
 
