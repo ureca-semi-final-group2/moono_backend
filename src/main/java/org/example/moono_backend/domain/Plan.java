@@ -23,21 +23,21 @@ public class Plan extends BaseEntity {
 
     private String planName;
 
-    private Integer baseFee;
+    private int baseFee;
 
     //기본 제공량
-    private Integer basicMobileData;
-    private Integer basicVoice;
-    private Integer basicSms;
+    private int basicMobileData;
+    private int basicVoice;
+    private int basicSms;
 
     //초과단가
-    private Integer overVoiceUnitFee;
-    private Integer overSmsUnitFee;
-    private Integer overDataUnitFeePerMb;
+    private int overVoiceUnitFee;
+    private int overSmsUnitFee;
+    private int overDataUnitFeePerMb;
 
-    private Boolean premiumYn;
+    private boolean premiumYn;
 
-    private Boolean dataInfiniteYn;
+    private boolean dataInfiniteYn;
 
 }
 

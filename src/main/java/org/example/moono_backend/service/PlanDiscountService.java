@@ -31,8 +31,7 @@ public class PlanDiscountService {
         Integer messageAmount = row.messageAmount();
 
         // 데이터 초과량
-        if (!planCacheItem.getDataInfiniteYn()) {
-            // TODO: 데이터 사용량을 double로 바꾸기
+        if (!planCacheItem.isDataInfiniteYn()) {
             int overData = calculateOverAmount(row.dataAmount(), basicMobileData);
 
             if (overData > 0) {

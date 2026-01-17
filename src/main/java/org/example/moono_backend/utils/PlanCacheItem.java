@@ -12,15 +12,15 @@ public class PlanCacheItem {
     private final String planName;
     private final Integer baseFee;
 
-    private final Integer basicMobileData;
-    private final Integer basicVoice;
-    private final Integer basicSms;
+    private final int basicMobileData;
+    private final int basicVoice;
+    private final int basicSms;
 
     //초과단가
-    private Integer overVoiceUnitFee;
-    private Integer overSmsUnitFee;
-    private Integer overDataUnitFeePerMb;
+    private int overVoiceUnitFee;
+    private int overSmsUnitFee;
+    private int overDataUnitFeePerMb;
 
-    private final Boolean premiumYn;
-    private final Boolean dataInfiniteYn;
+    private final boolean premiumYn;
+    private final boolean dataInfiniteYn;
 }

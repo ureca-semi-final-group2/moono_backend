@@ -23,7 +23,7 @@ public class Billing {
 
     private Long usageId;
 
-    private Integer billingFee;
+    private int billingFee;
 
     @Enumerated(EnumType.STRING)
     private PayStatus status;
