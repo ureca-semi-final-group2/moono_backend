@@ -2,8 +2,6 @@ package org.example.moono_backend.reader;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.sql.Date;
-import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
@@ -22,10 +20,9 @@ import org.springframework.batch.item.database.JdbcPagingItemReader;
 import org.springframework.batch.item.database.PagingQueryProvider;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.*;
-import org.springframework.core.io.ByteArrayResource;
+
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.datasource.init.*;
-import org.springframework.jdbc.datasource.embedded.*;
+
 
 class BillingSourceReaderOnlyTest {
 
@@ -106,47 +103,6 @@ class BillingSourceReaderOnlyTest {
         assertThat(r2.contractCreatedAt()).isEqualTo(LocalDateTime.of(2025, 6, 1, 0, 0));
     }
 
-    private void seed() {
-        // public_info
-        jdbcTemplate.update("INSERT INTO public_info (id, family_info_id) VALUES (?, ?)", "A000", 10L);
-        jdbcTemplate.update("INSERT INTO public_info (id, family_info_id) VALUES (?, ?)", "A001", 11L);
-        jdbcTemplate.update("INSERT INTO public_info (id, family_info_id) VALUES (?, ?)", "B001", 12L);
-
-        // plan
-        jdbcTemplate.update("INSERT INTO plan (id, base_fee, premium_yn) VALUES (?, ?, ?)", 1L, 10000, true);
-        jdbcTemplate.update("INSERT INTO plan (id, base_fee, premium_yn) VALUES (?, ?, ?)", 2L, 7000, false);
-
-        // registration (id는 bigint)
-        jdbcTemplate.update("INSERT INTO registration (id, public_info_id, plan_id) VALUES (?, ?, ?)", 101L, "A000",
-                1L);
-        jdbcTemplate.update("INSERT INTO registration (id, public_info_id, plan_id) VALUES (?, ?, ?)", 102L, "A001",
-                1L);
-        jdbcTemplate.update("INSERT INTO registration (id, public_info_id, plan_id) VALUES (?, ?, ?)", 103L, "B001",
-                2L);
-
-        // contract (register_id로 조인)
-        jdbcTemplate.update(
-                "INSERT INTO contract (id, register_id, term_year, created_at) VALUES (?, ?, ?, ?)",
-                201L, 101L, 2, Timestamp.valueOf(LocalDateTime.of(2024, 1, 1, 0, 0)));
-        jdbcTemplate.update(
-                "INSERT INTO contract (id, register_id, term_year, created_at) VALUES (?, ?, ?, ?)",
-                202L, 102L, 2, Timestamp.valueOf(LocalDateTime.of(2025, 1, 1, 0, 0)));
-        jdbcTemplate.update(
-                "INSERT INTO contract (id, register_id, term_year, created_at) VALUES (?, ?, ?, ?)",
-                203L, 103L, 1, Timestamp.valueOf(LocalDateTime.of(2025, 6, 1, 0, 0)));
-
-        LocalDate d1 = LocalDate.of(2025, 10, 10);
-
-        jdbcTemplate.update(
-                "INSERT INTO usage_time (public_info_id, usage_date, call_amount, message_amount, data_amount) VALUES (?, ?, ?, ?, ?)",
-                "A000", Date.valueOf(d1), 100, 10, 5000);
-        jdbcTemplate.update(
-                "INSERT INTO usage_time (public_info_id, usage_date, call_amount, message_amount, data_amount) VALUES (?, ?, ?, ?, ?)",
-                "A001", Date.valueOf(d1), 200, 20, 10000);
-        jdbcTemplate.update(
-                "INSERT INTO usage_time (public_info_id, usage_date, call_amount, message_amount, data_amount) VALUES (?, ?, ?, ?, ?)",
-                "B001", Date.valueOf(d1), 300, 30, 15000);
-    }
 
     private JdbcPagingItemReader<BillingSourceRow> openReader(String lastId, String dateParam) throws Exception {
         PagingQueryProvider queryProvider = billingBatch.pagingQueryProvider(lastId, dateParam);
