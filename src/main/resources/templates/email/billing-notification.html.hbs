@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background-color: #0066cc; color: white; padding: 20px; text-align: center; }
+        .content { padding: 20px; background-color: #f9f9f9; }
+        .section { margin-bottom: 20px; }
+        .amount { font-size: 24px; font-weight: bold; color: #0066cc; }
+        .item { padding: 5px 0; }
+        .discount { color: #cc0000; }
+        .footer { text-align: center; padding: 20px; font-size: 12px; color: #666; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>[U+ 알림] {{receiver.name}}님, {{header.billingMonth}}분 통신 요금 청구 내역서입니다.</h1>
+    </div>
+
+    <div class="content">
+        <p>안녕하세요, <strong>{{receiver.name}}</strong>님. 항상 저희 서비스를 이용해 주셔서 감사합니다.</p>
+
+        <div class="section">
+            <h2>1. 청구 요약</h2>
+            <p class="amount">이번 달 납부하실 금액: {{billingSummary.totalAmount}} 원</p>
+            <p>납부 기한: <strong>{{billingSummary.dueDate}}</strong></p>
+        </div>
+
+        <div class="section">
+            <h2>2. 항목별 상세 내역 (Breakdown)</h2>
+            <div class="item">요금제 기본료: {{billingSummary.baseFee}} 원 (기본 요금제 정보)</div>
+            <div class="item">데이터/음성 사용량 초과분: {{billingSummary.usageFee}} 원 (사용량 데이터 기반)</div>
+        </div>
+
+        <div class="section">
+            <h2>3. 부가 서비스 상세(VAS List)</h2>
+            {{#each details.additionalServices}}
+                <div class="item">- {{this.name}} : {{this.price}} 원</div>
+            {{/each}}
+            {{#unless details.additionalServices}}
+                <div class="item">- 부가 서비스 없음</div>
+            {{/unless}}
+        </div>
+
+        <div class="section">
+            <h2>4. 할인 적용 상세 (Discount List)</h2>
+            {{#each details.discounts}}
+                <div class="item discount">- {{this.name}} : -{{this.amount}} 원</div>
+            {{/each}}
+            {{#unless details.discounts}}
+                <div class="item">- 할인 없음</div>
+            {{/unless}}
+        </div>
+
+        <div class="section">
+            <h2>5. 최종 결제 금액</h2>
+            <p class="amount">총계: {{billingSummary.totalAmount}} 원 (VAT 포함)</p>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>본 메일은 발신 전용입니다.</p>
+        <p>문의사항이 있으시면 고객센터로 연락해 주세요.</p>
+    </div>
+</div>
+</body>
+</html>
