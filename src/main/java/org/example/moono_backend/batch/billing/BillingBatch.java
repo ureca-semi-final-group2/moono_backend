@@ -26,6 +26,8 @@ import org.example.moono_backend.service.ContractDiscountService;
 import org.example.moono_backend.service.EventDiscountService;
 import org.example.moono_backend.service.PlanDiscountService;
 import org.example.moono_backend.support.IdGenerator;
+import org.example.moono_backend.utils.PlanCache;
+import org.example.moono_backend.utils.PlanCacheItem;
 import org.springframework.batch.core.ChunkListener;
 import org.springframework.batch.core.ItemProcessListener;
 import org.springframework.batch.core.ItemReadListener;
@@ -137,11 +139,9 @@ public class BillingBatch {
 
                     return new BillingSourceRow(
                             rs.getString("public_info_id"),
-                            rs.getInt("base_fee"),
                             rs.getLong("plan_id"),
-                            rs.getBoolean("premium_yn"),
-                            termYear, // Integer (nullable)
-                            contractCreatedAt, // LocalDateTime (nullable)
+                            termYear,
+                            contractCreatedAt,
                             rs.getInt("call_amount"),
                             rs.getInt("message_amount"),
                             rs.getInt("data_amount")
@@ -161,8 +161,6 @@ public class BillingBatch {
     SELECT
     t.sort_id AS sort_id,
         t.public_info_id        AS public_info_id,
-        t.base_fee              AS base_fee,
-        t.premium_yn            AS premium_yn,
         t.plan_id               AS plan_id,
         t.term_year             AS term_year,
         t.contract_created_at   AS contract_created_at,
@@ -176,9 +174,7 @@ public class BillingBatch {
         SELECT
             pi.id               AS sort_id,
             pi.id               AS public_info_id,
-            p.base_fee          AS base_fee,
-            p.premium_yn        AS premium_yn,
-            p.id                AS plan_id,
+            r.plan_id              AS plan_id,
             c.term_year         AS term_year,
             c.created_at        AS contract_created_at,
             ut.call_amount      AS call_amount,
@@ -186,7 +182,6 @@ public class BillingBatch {
             ut.data_amount      AS data_amount
         FROM public_info pi
         JOIN registration r ON r.public_info_id = pi.id
-        JOIN plan p         ON p.id = r.plan_id
         LEFT JOIN contract c ON c.register_id = r.id
         JOIN usage_time ut  ON ut.public_info_id = pi.id
         WHERE ut.usage_date = :usageDate
@@ -210,7 +205,9 @@ public class BillingBatch {
         LocalDateTime now = LocalDateTime.now();
 
         return row -> {
-            int billingFee = row.baseFee();
+            PlanCacheItem plan = PlanCache.INSTANCE.get(row.planId());
+
+            Integer billingFee = plan.getBaseFee();
 
             // DB 조회가 아닌 리스너의 메모리 캐시에서 가져옴 (N + 1 방지)
             MemberCredential memberCredential = memberPreloadListener.getMember(row.publicInfoId());
@@ -220,8 +217,7 @@ public class BillingBatch {
             List<DiscountInfo> contractDiscounts = contractDiscountService.calculateContractDiscounts(row, now);
             discountInfoList.addAll(contractDiscounts);
 
-            DiscountInfo birthdayMonthDiscount = eventDiscountService.birthdayMonthDiscount(memberCredential,
-                    row.baseFee());
+            DiscountInfo birthdayMonthDiscount = eventDiscountService.birthdayMonthDiscount(memberCredential,billingFee);
             if (birthdayMonthDiscount != null) {
                 discountInfoList.add(birthdayMonthDiscount);
             }
@@ -239,7 +235,7 @@ public class BillingBatch {
             Billing createdBilling = Billing.builder()
                     .id(IdGenerator.generate())
                     .publicInfoId(row.publicInfoId())
-                    .usageId(1L) // TODO: 실제 usage_time id 필요하면 Reader에서 조인해서 가져오세요
+                    .usageId(1L) // TODO: 필요할 때 변경
                     .billingFee(billingFeeResult)
                     .status(PayStatus.UNPAID)
                     .sendStatus(SendStatus.CREATED)
@@ -254,8 +250,7 @@ public class BillingBatch {
                             .discountAmount(d.discountAmount())
                             .build())
                     .toList();
-            // BillingWriteItem 첫 번째 값은 lastId 갱신용으로 member_id 넣는 걸 추천
-            return new BillingWriteItem(1L, createdBilling, discountEntities);
+            return new BillingWriteItem(1L,createdBilling, discountEntities); //TODO: 파라미터 첫번쨰 값 수정
         };
     }
 
