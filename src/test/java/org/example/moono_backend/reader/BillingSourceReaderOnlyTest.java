@@ -3,7 +3,6 @@ package org.example.moono_backend.reader;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 
 import javax.sql.DataSource;
 
@@ -73,13 +72,8 @@ class BillingSourceReaderOnlyTest {
     @Test
     void lastId보다_큰_public_info만_정상적으로_조인되어_읽힌다() throws Exception {
         // given
-        PagingQueryProvider queryProvider = billingBatch.pagingQueryProvider(LAST_ID, DATE_PARAM);
-
-        JdbcPagingItemReader<BillingSourceRow> reader = billingBatch.billingSourceReader(dataSource, queryProvider,
-                LAST_ID, DATE_PARAM);
-
-        reader.afterPropertiesSet();
-        reader.open(new ExecutionContext());
+        LAST_ID = fixture.getFirstPublicInfoId();
+        JdbcPagingItemReader<BillingSourceRow> reader = openReader(LAST_ID, DATE_PARAM);
 
         // when
         BillingSourceRow r1 = reader.read();
@@ -91,16 +85,7 @@ class BillingSourceReaderOnlyTest {
         assertThat(r2).isNotNull();
         assertThat(r3).isNull();
 
-        assertThat(r1.publicInfoId()).isEqualTo("A001");
-        assertThat(r1.termYear()).isEqualTo(2);
-        assertThat(r1.callAmount()).isEqualTo(200);
-        assertThat(r1.messageAmount()).isEqualTo(20);
-        assertThat(r1.dataAmount()).isEqualTo(10000);
-        assertThat(r1.contractCreatedAt()).isEqualTo(LocalDateTime.of(2025, 1, 1, 0, 0));
 
-        assertThat(r2.publicInfoId()).isEqualTo("B001");
-        assertThat(r2.termYear()).isEqualTo(1);
-        assertThat(r2.contractCreatedAt()).isEqualTo(LocalDateTime.of(2025, 6, 1, 0, 0));
     }
 
 

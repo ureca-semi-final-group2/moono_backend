@@ -5,11 +5,14 @@ import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
+import java.util.ArrayList;
+import java.util.List;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 public class BillingFixture {
 
     private final JdbcTemplate jdbc;
+    private final List<String> publicInfoIds = new ArrayList<>();
 
     public BillingFixture(JdbcTemplate jdbc) {
         this.jdbc = jdbc;
@@ -43,6 +46,7 @@ public class BillingFixture {
 
     public void publicInfo(String id, long familyInfoId) {
         jdbc.update("INSERT INTO public_info (id, family_info_id) VALUES (?, ?)", id, familyInfoId);
+        publicInfoIds.add(id);
     }
 
     public void plan(long id, int baseFee, boolean premium) {
@@ -64,6 +68,13 @@ public class BillingFixture {
             INSERT INTO usage_time (public_info_id, usage_date, call_amount, message_amount, data_amount)
             VALUES (?, ?, ?, ?, ?)
         """, publicInfoId, Date.valueOf(usageDate), call, msg, data);
+    }
+
+    public String getFirstPublicInfoId() {
+        if (publicInfoIds.isEmpty()) {
+            throw new IllegalStateException("No public_info inserted");
+        }
+        return publicInfoIds.get(0);
     }
 }
 
