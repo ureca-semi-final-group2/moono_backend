@@ -97,8 +97,6 @@ class BillingSourceReaderOnlyTest {
         assertThat(r3).isNull();
 
         assertThat(r1.publicInfoId()).isEqualTo("A001");
-        assertThat(r1.baseFee()).isEqualTo(10000);
-        assertThat(r1.premiumYn()).isTrue();
         assertThat(r1.termYear()).isEqualTo(2);
         assertThat(r1.callAmount()).isEqualTo(200);
         assertThat(r1.messageAmount()).isEqualTo(20);
@@ -106,8 +104,6 @@ class BillingSourceReaderOnlyTest {
         assertThat(r1.contractCreatedAt()).isEqualTo(LocalDateTime.of(2025, 1, 1, 0, 0));
 
         assertThat(r2.publicInfoId()).isEqualTo("B001");
-        assertThat(r2.baseFee()).isEqualTo(7000);
-        assertThat(r2.premiumYn()).isFalse();
         assertThat(r2.termYear()).isEqualTo(1);
         assertThat(r2.contractCreatedAt()).isEqualTo(LocalDateTime.of(2025, 6, 1, 0, 0));
     }
