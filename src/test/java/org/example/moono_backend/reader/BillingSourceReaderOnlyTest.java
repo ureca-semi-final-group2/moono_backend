@@ -1,4 +1,4 @@
-package org.example.moono_backend;
+package org.example.moono_backend.reader;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -11,6 +11,8 @@ import javax.sql.DataSource;
 
 import org.example.moono_backend.batch.billing.BillingBatch;
 import org.example.moono_backend.batch.billing.dto.BillingSourceRow;
+import org.example.moono_backend.support.BillingFixture;
+import org.example.moono_backend.support.BillingTestDataSourceConfig;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -31,17 +33,22 @@ class BillingSourceReaderOnlyTest {
     private DataSource dataSource;
     private JdbcTemplate jdbcTemplate;
     private BillingBatch billingBatch;
+    private BillingFixture fixture;
 
+    static String LAST_ID;
     static final String DATE_PARAM = "2025-10-10";
-    static final String LAST_ID = "A000";
+    static final LocalDate USAGE_DATE = LocalDate.of(2025, 10, 10);
 
     @BeforeEach
     void setUp() {
-        this.context = new AnnotationConfigApplicationContext(TestDataSourceConfiguration.class);
+        this.context = new AnnotationConfigApplicationContext(BillingTestDataSourceConfig.class);
         this.dataSource = context.getBean(DataSource.class);
         this.jdbcTemplate = new JdbcTemplate(this.dataSource);
         this.billingBatch = new BillingBatch(null, null, null, null);
-        seed();
+        this.fixture = new BillingFixture(jdbcTemplate);
+
+        fixture.seedDefaultScenario(USAGE_DATE);
+
     }
 
     @AfterEach
@@ -53,22 +60,13 @@ class BillingSourceReaderOnlyTest {
 
     @Test
     void lastId가_null이면_첫번째_청크가_읽힌다() throws Exception {
-        // given
-        String lastId = null;
-        PagingQueryProvider queryProvider = billingBatch.pagingQueryProvider(lastId, DATE_PARAM);
+        LAST_ID = null;
+        JdbcPagingItemReader<BillingSourceRow> reader = openReader(LAST_ID, DATE_PARAM);
 
-        JdbcPagingItemReader<BillingSourceRow> reader = billingBatch.billingSourceReader(dataSource, queryProvider,
-                lastId, DATE_PARAM);
-
-        reader.afterPropertiesSet();
-        reader.open(new ExecutionContext());
-
-        // when
         BillingSourceRow r1 = reader.read();
         BillingSourceRow r2 = reader.read();
         BillingSourceRow r3 = reader.read();
 
-        // then
         assertThat(r1).isNotNull();
         assertThat(r2).isNotNull();
         assertThat(r3).isNotNull();
@@ -150,61 +148,14 @@ class BillingSourceReaderOnlyTest {
                 "B001", Date.valueOf(d1), 300, 30, 15000);
     }
 
-    @Configuration
-    public static class TestDataSourceConfiguration {
+    private JdbcPagingItemReader<BillingSourceRow> openReader(String lastId, String dateParam) throws Exception {
+        PagingQueryProvider queryProvider = billingBatch.pagingQueryProvider(lastId, dateParam);
 
-        @Bean
-        public DataSource dataSource() {
-            return new EmbeddedDatabaseBuilder()
-                    .setType(EmbeddedDatabaseType.H2)
-                    .setName("testdb;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH")
-                    .build();
-        }
+        JdbcPagingItemReader<BillingSourceRow> reader =
+            billingBatch.billingSourceReader(dataSource, queryProvider, lastId, dateParam);
 
-        @Bean
-        public DataSourceInitializer initializer(DataSource dataSource) {
-            String ddl = """
-                    CREATE TABLE public_info (
-                        id             VARCHAR(255) PRIMARY KEY,
-                        family_info_id BIGINT
-                    );
-
-                    CREATE TABLE plan (
-                        id         BIGINT PRIMARY KEY,
-                        base_fee   INT NOT NULL,
-                        premium_yn BOOLEAN NOT NULL
-                    );
-
-                    CREATE TABLE registration (
-                        id            BIGINT PRIMARY KEY,
-                        public_info_id VARCHAR(255) NOT NULL,
-                        plan_id       BIGINT NOT NULL
-                    );
-
-                    CREATE TABLE contract (
-                        id          BIGINT PRIMARY KEY,
-                        register_id BIGINT NOT NULL,
-                        term_year   INT NOT NULL,
-                        created_at  TIMESTAMP NOT NULL
-                    );
-
-                      CREATE TABLE usage_time (
-                          public_info_id VARCHAR(255) NOT NULL,
-                          usage_date     DATE NOT NULL,
-                          call_amount    INT NOT NULL,
-                          message_amount INT NOT NULL,
-                          data_amount    INT NOT NULL,
-                          CONSTRAINT pk_usage_time PRIMARY KEY (public_info_id, usage_date)
-                                    );
-                    """;
-
-            DataSourceInitializer init = new DataSourceInitializer();
-            init.setDataSource(dataSource);
-
-            ResourceDatabasePopulator populator = new ResourceDatabasePopulator(new ByteArrayResource(ddl.getBytes()));
-            init.setDatabasePopulator(populator);
-
-            return init;
-        }
+        reader.afterPropertiesSet();
+        reader.open(new ExecutionContext());
+        return reader;
     }
 }
