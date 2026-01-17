@@ -13,10 +13,10 @@ public class UsageTime {
     @EmbeddedId
     private UsageTimeId id;
 
-    private Integer callAmount;
+    private int callAmount;
 
-    private Integer messageAmount;
+    private int messageAmount;
 
-    private Integer dataAmount;
+    private int dataAmount;
 
 }

@@ -20,9 +20,9 @@ public class Registration {
 
     private String publicInfoId;
 
-    private Boolean contractYn;
+    private boolean contractYn;
 
-    private Boolean premiumYn;
+    private boolean premiumYn;
 
     private LocalDate registerDate;
 

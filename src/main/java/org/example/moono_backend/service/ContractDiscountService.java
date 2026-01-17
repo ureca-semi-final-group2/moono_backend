@@ -35,7 +35,7 @@ public class ContractDiscountService {
         List<DiscountInfo> discounts = new ArrayList<>();
         discounts.add(DiscountInfo.from(Discount.SELECTION_CONTRACT, plan.getBaseFee()));
 
-        if (plan.getPremiumYn() && row.termYear() == PREMIUM_CONTRACT_TERM_YEARS) {
+        if (plan.isPremiumYn() && row.termYear() == PREMIUM_CONTRACT_TERM_YEARS) {
             discounts.add(DiscountInfo.from(Discount.PREMIUM_CONTRACT, plan.getBaseFee()));
         }
 
