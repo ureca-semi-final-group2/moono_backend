@@ -42,7 +42,8 @@ dependencies {
     implementation 'org.springframework.kafka:spring-kafka'
     implementation 'com.fasterxml.jackson.core:jackson-databind' //json 문자열 DTO 객체 변환 라이브러리
 
-    
+    // Handlebars 템플릿 엔진 (이메일 템플릿 렌더링용)
+    implementation 'com.github.jknack:handlebars:4.3.1'
 
 }
 
