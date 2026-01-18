@@ -9,5 +9,6 @@ public record BillingSourceRow(
         LocalDateTime contractCreatedAt,
         Integer callAmount,
         Integer messageAmount,
-        Integer dataAmount) {
+        Integer dataAmount,
+        Integer familyCount) {
 }
