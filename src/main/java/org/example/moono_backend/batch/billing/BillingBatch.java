@@ -1,5 +1,6 @@
 package org.example.moono_backend.batch.billing;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.sql.Date;
 import java.sql.Timestamp;
 import java.sql.Types;
@@ -13,6 +14,8 @@ import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.moono_backend.batch.BatchMetricsListener;
+import org.example.moono_backend.batch.billing.dto.BillingDetailsJson;
+import org.example.moono_backend.batch.billing.dto.BillingDetailsJson.Item;
 import org.example.moono_backend.batch.billing.dto.BillingSourceRow;
 import org.example.moono_backend.batch.billing.dto.BillingWriteItem;
 import org.example.moono_backend.domain.Billing;
@@ -201,13 +204,14 @@ public class BillingBatch {
     public ItemProcessor<BillingSourceRow, BillingWriteItem> billingProcessor(
             @Value("#{jobParameters['now']}") String nowParam,
             MemberPreloadListener memberPreloadListener,
-            PlanDiscountService planDiscountService) {
+            PlanDiscountService planDiscountService,
+            ObjectMapper objectMapper) {
         LocalDateTime now = LocalDateTime.now();
 
         return row -> {
             PlanCacheItem plan = PlanCache.INSTANCE.get(row.planId());
 
-            Integer billingFee = plan.getBaseFee();
+            int billingFee = plan.getBaseFee();
 
             // DB 조회가 아닌 리스너의 메모리 캐시에서 가져옴 (N + 1 방지)
             MemberCredential memberCredential = memberPreloadListener.getMember(row.publicInfoId());
@@ -229,6 +233,19 @@ public class BillingBatch {
                     .mapToInt(DiscountInfo::discountAmount)
                     .sum();
 
+            //할인 내역을 JSON으로 가공
+            List<BillingDetailsJson.Item> discountsJson = discountInfoList.stream()
+                .map(d -> new BillingDetailsJson.Item(d.discountName(), d.discountAmount()))
+                .toList();
+
+            //과금 내역을 JSON으로 가공
+            List<BillingDetailsJson.Item> overagesJson=overageChargeInfos.stream()
+                    .map(o->new Item(o.code(),o.chargeAmount()))
+                    .toList();
+
+            BillingDetailsJson payload = new BillingDetailsJson(discountsJson, overagesJson);
+            String billingDetailsJson = objectMapper.writeValueAsString(payload);
+
             // 최종 청구 금액
             int billingFeeResult = Math.max(0, billingFee - totalDiscount);
 
@@ -241,6 +258,7 @@ public class BillingBatch {
                     .sendStatus(SendStatus.CREATED)
                     .billingDate(now)
                     .paidDate(null)
+                    .billingDetails(billingDetailsJson)
                     .build();
 
             List<DiscountEntity> discountEntities = discountInfoList.stream()
@@ -276,7 +294,8 @@ public class BillingBatch {
                         status,
                         send_status,
                         billing_date,
-                        paid_date
+                        paid_date,
+                        billing_details
                     )
                     VALUES (
                         :publicInfoId,
@@ -285,7 +304,8 @@ public class BillingBatch {
                         :status,
                         :sendStatus,
                         :billingDate,
-                        :paidDate
+                        :paidDate,
+                        :billingDetails
                     )
                 """;
 
@@ -306,6 +326,7 @@ public class BillingBatch {
 
                     p.addValue("billingDate", b.getBillingDate(), Types.TIMESTAMP);
                     p.addValue("paidDate", b.getPaidDate(), Types.TIMESTAMP);
+                    p.addValue("billingDetails", b.getBillingDetails(), Types.VARCHAR);
 
                     return p;
                 })
