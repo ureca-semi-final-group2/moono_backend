@@ -305,7 +305,7 @@ public class BillingBatch {
                         :sendStatus,
                         :billingDate,
                         :paidDate,
-                        :billingDetails
+                        CAST(:billingDetails AS jsonb)
                     )
                 """;
 
