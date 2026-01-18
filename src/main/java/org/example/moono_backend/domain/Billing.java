@@ -35,4 +35,7 @@ public class Billing {
 
     private LocalDateTime paidDate;
 
+    @Column(columnDefinition = "jsonb")
+    private String billingDetails;
+
 }
