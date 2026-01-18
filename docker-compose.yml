@@ -59,6 +59,19 @@ services:
     networks:
       - moono-network
 
+  kafka-exporter:
+    image: danielqsj/kafka-exporter:latest
+    container_name: moono-kafka-exporter
+    command:
+      - --kafka.server=kafka:29092
+    ports:
+      - "9308:9308"
+    networks:
+      - moono-network
+    restart: always
+    depends_on:
+      - kafka
+
 volumes:
   kafka-data:
   redis-data:

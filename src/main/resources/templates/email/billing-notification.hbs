@@ -1,0 +1,28 @@
+[U+ 알림] {{receiver.name}}님, {{header.billingMonth}}분 통신 요금 청구 내역서입니다.
+
+안녕하세요, {{receiver.name}}님. 항상 저희 서비스를 이용해 주셔서 감사합니다.
+
+1. 청구 요약:
+
+- 이번 달 납부하실 금액: {{billingSummary.totalAmount}} 원
+
+- 납부 기한: {{billingSummary.dueDate}}
+
+2. 항목별 상세 내역 (Breakdown):
+
+- 요금제 기본료: {{billingSummary.baseFee}} 원 (기본 요금제 정보)
+- 데이터/음성 사용량 초과분: {{billingSummary.usageFee}} 원 (사용량 데이터 기반)
+
+3. 부가 서비스 상세(VAS List)
+{{#each details.additionalServices}}
+    - {{this.name}} : {{this.price}} 원
+{{/each}}
+
+4. 할인 적용 상세 (Discount List)
+{{#each details.discounts}}
+    - {{this.name}} : -{{this.amount}} 원
+{{/each}}
+
+5. 최종 결제 금액
+
+- 총계: {{billingSummary.totalAmount}} 원 (VAT 포함)
