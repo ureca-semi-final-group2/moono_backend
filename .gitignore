@@ -44,3 +44,6 @@ src/main/resources/sql/
 # Kafka & Zookeeper 데이터 폴더 무시
 kafka-data/
 zookeeper-data/
+
+*.hprof
+*.jfr
