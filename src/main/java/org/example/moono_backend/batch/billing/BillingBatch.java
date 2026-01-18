@@ -27,6 +27,7 @@ import org.example.moono_backend.dto.DiscountInfo;
 import org.example.moono_backend.dto.OverageChargeInfo;
 import org.example.moono_backend.service.ContractDiscountService;
 import org.example.moono_backend.service.EventDiscountService;
+import org.example.moono_backend.service.FamilyDiscountService;
 import org.example.moono_backend.service.PlanDiscountService;
 import org.example.moono_backend.support.IdGenerator;
 import org.example.moono_backend.utils.PlanCache;
@@ -72,6 +73,7 @@ public class BillingBatch {
 
     private final ContractDiscountService contractDiscountService;
     private final EventDiscountService eventDiscountService;
+    private final FamilyDiscountService familyDiscountService;
 
     private static final int CHUNK_SIZE = 1000;
 
@@ -236,6 +238,8 @@ public class BillingBatch {
             if (birthdayMonthDiscount != null) {
                 discountInfoList.add(birthdayMonthDiscount);
             }
+
+            familyDiscountService.calculateFamilyDiscounts(row).ifPresent(discountInfoList::add);
 
             // 요금제 별 과금 조회
             List<OverageChargeInfo> overageChargeInfos = planDiscountService.calculatePlanDiscounts(row);
