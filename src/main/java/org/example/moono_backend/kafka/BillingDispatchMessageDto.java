@@ -26,6 +26,7 @@ public class BillingDispatchMessageDto {
     @NoArgsConstructor(access = AccessLevel.PROTECTED)
     @AllArgsConstructor
     public static class Header {
+        private String publicInfoId;
         private Long billingId; // 정합성 및 멱등성 체크용 ID
         private String billingMonth; // 청구 월 (예: "2026-01")
         private boolean isForced; // DND 무시 여부 (강제 발송 시)
