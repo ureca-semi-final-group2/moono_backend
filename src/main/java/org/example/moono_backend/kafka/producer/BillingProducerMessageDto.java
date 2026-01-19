@@ -1,4 +1,4 @@
-package org.example.moono_backend.kafka;
+package org.example.moono_backend.kafka.producer;
 
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -10,7 +10,7 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class BillingDispatchMessageDto {
+public class BillingProducerMessageDto {
     private Header header;
     private Receiver receiver;
     private BillingSummary billingSummary;

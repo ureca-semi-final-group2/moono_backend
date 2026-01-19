@@ -14,12 +14,12 @@
 - 데이터/음성 사용량 초과분: {{billingSummary.usageFee}} 원 (사용량 데이터 기반)
 
 3. 부가 서비스 상세(VAS List)
-{{#each details.additionalServices}}
+{{#each details.overageItem}}
     - {{this.name}} : {{this.price}} 원
 {{/each}}
 
 4. 할인 적용 상세 (Discount List)
-{{#each details.discounts}}
+{{#each details.discountItem}}
     - {{this.name}} : -{{this.amount}} 원
 {{/each}}
 

@@ -31,7 +31,7 @@ public class RawDetailsDto {
     @Data
     public static class DiscountItem {
         @JsonProperty("type")
-        private String type; // "event" 등등
+        private String type; // "select_contract", "event" 등등
         @JsonProperty("amount")
         private long amount;
     }
