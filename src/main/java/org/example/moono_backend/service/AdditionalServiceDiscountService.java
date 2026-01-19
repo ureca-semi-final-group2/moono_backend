@@ -3,9 +3,13 @@ package org.example.moono_backend.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.moono_backend.domain.AdditionalServiceSubscription;
+import org.example.moono_backend.domain.Registration;
 import org.example.moono_backend.domain.discount.AdditionalService;
+import org.example.moono_backend.domain.tier.TierName;
 import org.example.moono_backend.dto.DiscountInfo;
 import org.example.moono_backend.repository.AdditionalServiceSubscriptionRepository;
+import org.example.moono_backend.utils.PlanCache;
+import org.example.moono_backend.utils.PlanCacheItem;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -20,21 +24,18 @@ public class AdditionalServiceDiscountService {
 
     /**
      * 특정 사용자(public_info_id)의 부가서비스 청구 내역 계산
-     * @param publicInfoId 사용자 ID
-     * @param tierName 요금제 등급 (LOW, MID, HIGH)
      * @return 부가서비스별 할인 정보 리스트
      */
-    public List<DiscountInfo> calculateAdditionalServiceDiscounts(String publicInfoId, String tierName) {
-        // Registration을 통해 부가서비스 조회
-        List<AdditionalServiceSubscription> subscriptions =
-                additionalServiceSubscriptionRepository.findByPublicInfoIdAndActiveYn(publicInfoId, true);
+    public List<DiscountInfo> calculateAdditionalServiceDiscounts(Registration registration, List<AdditionalServiceSubscription> additionalServiceSubscriptions) {
+        PlanCacheItem plan = PlanCache.INSTANCE.get(registration.getPlanId());
+        TierName tierName = TierName.getTier(plan.getBaseFee());
 
         List<DiscountInfo> discountInfos = new ArrayList<>();
 
-        for (AdditionalServiceSubscription subscription : subscriptions) {
+        for (AdditionalServiceSubscription subscription : additionalServiceSubscriptions) {
             try {
                 AdditionalService service = AdditionalService.valueOf(subscription.getServiceCode());
-                int discountAmount = service.getDiscountAmount(tierName);
+                int discountAmount = service.getDiscountAmount(tierName.name());
 
                 discountInfos.add(new DiscountInfo(
                         service.name(),

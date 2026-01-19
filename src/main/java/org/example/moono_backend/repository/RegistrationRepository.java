@@ -4,7 +4,10 @@ import org.example.moono_backend.domain.Registration;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
+
 @Repository
 public interface RegistrationRepository extends JpaRepository<Registration, Long> {
     Registration findByPublicInfoId(String publicInfoId);
+    List<Registration> findAllByPublicInfoIdIn(List<String> publicInfoIds);
 }
