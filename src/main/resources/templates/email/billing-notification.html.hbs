@@ -37,20 +37,20 @@
 
         <div class="section">
             <h2>3. 부가 서비스 상세(VAS List)</h2>
-            {{#each details.additionalServices}}
+            {{#each details.overageItem}}
                 <div class="item">- {{this.name}} : {{this.price}} 원</div>
             {{/each}}
-            {{#unless details.additionalServices}}
+            {{#unless details.overageItem}}
                 <div class="item">- 부가 서비스 없음</div>
             {{/unless}}
         </div>
 
         <div class="section">
             <h2>4. 할인 적용 상세 (Discount List)</h2>
-            {{#each details.discounts}}
+            {{#each details.discountItem}}
                 <div class="item fixedDiscountPolicy">- {{this.name}} : -{{this.amount}} 원</div>
             {{/each}}
-            {{#unless details.discounts}}
+            {{#unless details.discountItem}}
                 <div class="item">- 할인 없음</div>
             {{/unless}}
         </div>
