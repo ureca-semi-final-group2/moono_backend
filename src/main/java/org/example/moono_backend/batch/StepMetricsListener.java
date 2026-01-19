@@ -2,9 +2,12 @@ package org.example.moono_backend.batch;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+
+import org.springframework.batch.core.ChunkListener;
 import org.springframework.batch.core.ExitStatus;
 import org.springframework.batch.core.StepExecution;
 import org.springframework.batch.core.StepExecutionListener;
+import org.springframework.batch.core.scope.context.ChunkContext;
 
 /*
 
@@ -14,10 +17,11 @@ import org.springframework.batch.core.StepExecutionListener;
  * */
 @Slf4j
 @RequiredArgsConstructor
-public class StepMetricsListener implements StepExecutionListener {
+public class StepMetricsListener implements StepExecutionListener, ChunkListener {
 
     private final BatchMetrics batchMetrics;
     private long stepStartMillis;
+    private int chunkCount = 0; // 실시간 청크 카운팅용
 
     @Override
     public void beforeStep(StepExecution stepExecution) {
@@ -27,6 +31,32 @@ public class StepMetricsListener implements StepExecutionListener {
                 stepExecution.getStepName(),
                 stepExecution.getJobExecutionId(),
                 stepExecution.getId());
+    }
+
+    @Override
+    public void beforeChunk(ChunkContext context) {
+        // 특별한 로직이 없더라도 인터페이스 구현을 위해 비워둔 채로 둡니다.
+    }
+
+    @Override
+    public void afterChunk(ChunkContext context) {
+        chunkCount++;
+        long currentElapsed = System.currentTimeMillis() - stepStartMillis;
+
+        // 현재까지 읽은/쓴 양을 context에서 가져올 수 있습니다.
+        var stepExecution = context.getStepContext().getStepExecution();
+
+        log.info(">> [PROGRESS] {}번째 청크 완료 (읽기: {}건, 카프카전송: {}건, 누적 {}ms)",
+                chunkCount,
+                stepExecution.getReadCount(), // DB에서 읽어온 총 건수
+                stepExecution.getWriteCount(), // Processor를 통과해 Writer(카프카)로 전송 성공한 건수
+                currentElapsed);
+    }
+
+    @Override
+    public void afterChunkError(ChunkContext context) {
+        // 에러 발생 시 로그 추가 (선택 사항)
+        log.warn("!! [PROGRESS] {}번째 청크에서 에러 발생", chunkCount + 1);
     }
 
     @Override
