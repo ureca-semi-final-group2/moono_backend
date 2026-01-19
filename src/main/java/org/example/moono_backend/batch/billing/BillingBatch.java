@@ -169,49 +169,53 @@ public class BillingBatch {
             @Value("#{stepExecutionContext['lastId']}") String lastId,
             @Value("#{jobParameters['date']}") String dateParam) {
         PostgresPagingQueryProvider queryProvider = new PostgresPagingQueryProvider();
-
         queryProvider.setSelectClause("""
-    SELECT
-        t.register_id           AS register_id,
-        t.sort_id AS sort_id,
-        t.public_info_id        AS public_info_id,
-        t.plan_id               AS plan_id,
-        t.term_year             AS term_year,
-        t.contract_created_at   AS contract_created_at,
-        t.call_amount           AS call_amount,
-        t.message_amount        AS message_amount,
-        t.data_amount           AS data_amount,
-        t.family_count AS family_count
-""");
+        SELECT
+            t.register_id           AS register_id,
+            t.sort_id               AS sort_id,
+            t.public_info_id        AS public_info_id,
+            t.plan_id               AS plan_id,
+            t.term_year             AS term_year,
+            t.contract_created_at   AS contract_created_at,
+            t.call_amount           AS call_amount,
+            t.message_amount        AS message_amount,
+            t.data_amount           AS data_amount,
+            t.family_count          AS family_count
+    """);
 
         queryProvider.setFromClause("""
-    FROM (
-        SELECT
-            r.id                AS register_id,
-            pi.id               AS sort_id,
-            pi.id               AS public_info_id,
-            r.plan_id              AS plan_id,
-            c.term_year         AS term_year,
-            c.created_at        AS contract_created_at,
-            ut.call_amount      AS call_amount,
-            ut.message_amount   AS message_amount,
-            ut.data_amount      AS data_amount,
-            COALESCE(fc.family_count, 0) AS family_count
-        FROM public_info pi
-        JOIN registration r ON r.public_info_id = pi.id
-        LEFT JOIN contract c ON c.register_id = r.id
-        JOIN usage_time ut  ON ut.public_info_id = pi.id
-          LEFT JOIN (
-                   SELECT
-                      pi2.family_info_id AS family_info_id,
-                      COUNT(*) AS family_count
-                      FROM public_info pi2
-                      WHERE pi2.family_info_id IS NOT NULL
-                      GROUP BY pi2.family_info_id
-                    ) fc ON fc.family_info_id = pi.family_info_id
-        WHERE ut.usage_date = :usageDate
-    ) t
-""");
+        FROM (
+            SELECT
+                r.id                         AS register_id,
+                base.public_info_id          AS sort_id,
+                base.public_info_id          AS public_info_id,
+                r.plan_id                    AS plan_id,
+                c.term_year                  AS term_year,
+                c.created_at                 AS contract_created_at,
+                base.call_amount             AS call_amount,
+                base.message_amount          AS message_amount,
+                base.data_amount             AS data_amount,
+                COALESCE(fc.family_count, 0) AS family_count
+            FROM (
+                SELECT
+                    ut.public_info_id,
+                    ut.call_amount,
+                    ut.message_amount,
+                    ut.data_amount
+                FROM usage_time_p ut
+                WHERE ut.usage_date = CAST(:usageDate AS date)
+            ) base
+            JOIN public_info pi
+              ON pi.id = base.public_info_id
+            JOIN registration r
+              ON r.public_info_id = pi.id
+            LEFT JOIN contract c
+              ON c.register_id = r.id
+            LEFT JOIN public.family_count_mv fc
+              ON fc.family_info_id = pi.family_info_id
+        ) t
+    """);
+
         if (lastId != null) {
             queryProvider.setWhereClause("WHERE sort_id > :lastId");
         }
