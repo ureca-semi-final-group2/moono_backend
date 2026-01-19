@@ -1,11 +1,17 @@
 package org.example.moono_backend.batch.sending;
 
+import org.example.moono_backend.batch.BatchMetrics;
+import org.example.moono_backend.batch.StepMetricsListener;
 import org.example.moono_backend.domain.Billing;
-import org.example.moono_backend.kafka.BillingMessageDto;
+import org.example.moono_backend.kafka.BillingDispatchMessageDto;
+import org.example.moono_backend.repository.MemberCredentialRepository;
+import org.example.moono_backend.repository.UserDndPolicyRepository;
+import org.springframework.batch.core.ExitStatus;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
+import org.springframework.batch.core.StepExecution;
+import org.springframework.batch.core.StepExecutionListener;
 import org.springframework.batch.core.configuration.JobRegistry;
-import org.springframework.batch.core.configuration.support.ReferenceJobFactory;
 import org.springframework.batch.core.job.builder.JobBuilder;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.builder.StepBuilder;
@@ -26,27 +32,57 @@ public class SendingJobConfig {
     private final JobRepository jobRepository;
     private final PlatformTransactionManager transactionManager;
     private final EntityManagerFactory entityManagerFactory;
-    private final KafkaTemplate<String, BillingMessageDto> kafkaTemplate;
+    private final KafkaTemplate<String, BillingDispatchMessageDto> kafkaTemplate;
 
     private static final int CHUNK_SIZE = 1000;
 
-    @Bean
-    public Job sendingJob(JobRegistry jobRegistry) throws Exception {
-        Job sendingJob = new JobBuilder("sendingJob", jobRepository)
-                .start(sendingStep())
-                .build();
+    private final MemberCredentialRepository memberRepository;
+    private final UserDndPolicyRepository dndRepository;
 
-        return sendingJob;
+    /** 배치 1회 실행 동안 성능/성공실패를 누적할 계산용 메트릭 */
+    @Bean
+    public BatchMetrics batchMetrics() {
+        return new BatchMetrics();
+    }
+
+    /** Step 요약 로그를 남기는 리스너 */
+    @Bean
+    public StepMetricsListener stepMetricsListener(BatchMetrics batchMetrics) {
+        return new StepMetricsListener(batchMetrics);
     }
 
     @Bean
-    public Step sendingStep() {
-        return new StepBuilder("sendingStep", jobRepository)
-                .<Billing, BillingMessageDto>chunk(CHUNK_SIZE, transactionManager)
-                .reader(new SendingItemReader(entityManagerFactory))
-                .processor(new SendingItemProcessor())
-                .writer(new SendingItemWriter(kafkaTemplate))
+    public Job sendingJob(Step sendingStep) {
+        return new JobBuilder("sendingJob", jobRepository)
+                .start(sendingStep)
                 .build();
+    }
+
+    @Bean
+    public Step sendingStep(BatchMetrics batchMetrics,
+            StepMetricsListener stepMetricsListener,
+            SendingItemProcessor sendingItemProcessor, // 수정: Bean으로 주입받음
+            SendingItemWriter sendingItemWriter // 수정: Bean으로 주입받음
+    ) {
+        return new StepBuilder("sendingStep", jobRepository)
+                .<Billing, BillingDispatchMessageDto>chunk(CHUNK_SIZE, transactionManager)
+                .reader(new SendingItemReader(entityManagerFactory))
+                .processor(sendingItemProcessor)
+                .writer(sendingItemWriter)
+                .listener(stepMetricsListener) // sendingStep 을 실행할때 자동으로 step 전 후 에 호출
+                .build();
+    }
+
+    // Processor를 Bean으로 등록하여 Repository들이 자동 주입되게 함
+    @Bean
+    public SendingItemProcessor sendingItemProcessor(BatchMetrics batchMetrics) {
+        return new SendingItemProcessor(batchMetrics, memberRepository, dndRepository);
+    }
+
+    // Writer도 Bean으로 등록
+    @Bean
+    public SendingItemWriter sendingItemWriter(BatchMetrics batchMetrics) {
+        return new SendingItemWriter(kafkaTemplate, batchMetrics);
     }
 
 }

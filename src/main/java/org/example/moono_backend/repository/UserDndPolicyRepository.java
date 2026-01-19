@@ -10,13 +10,7 @@ import java.util.Optional;
 @Repository
 public interface UserDndPolicyRepository extends JpaRepository<UserDndPolicy, Long> {
 
-
-    /**
-     * publicInfoId로 사용자의 모든 금칙 시간 정책 조회
-     * @param publicInfoId
-     * @return List<UserDndPolicy> 사용자의 모든 정책 목록
-     */
-    List<UserDndPolicy> findByPublicInfoId(String publicInfoId);
+    UserDndPolicy findByPublicInfoId(String publicInfoId);
 
     /**
      * 발송일별 정책 조회
@@ -33,12 +27,12 @@ public interface UserDndPolicyRepository extends JpaRepository<UserDndPolicy, Lo
      * publicInfoId, sendDay, isDndActive로 활성화된 정책만 조회
      *
      * 금칙 시간이 활성화된 정책만 조회하고 싶을때 사용함
+     * 
      * @param publicInfoId
      * @param sendDay
      * @param isDndActive
      * @return Optional<UserDndPolicy>
      */
     Optional<UserDndPolicy> findByPublicInfoIdAndSendDayAndIsDndActive(
-            String publicInfoId, String sendDay, boolean isDndActive
-    );
+            String publicInfoId, String sendDay, boolean isDndActive);
 }
