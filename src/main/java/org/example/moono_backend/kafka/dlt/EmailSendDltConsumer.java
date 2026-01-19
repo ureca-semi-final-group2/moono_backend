@@ -6,7 +6,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.moono_backend.domain.EmailFailLog;
 import org.example.moono_backend.domain.ParseStatus;
-import org.example.moono_backend.kafka.BillingDispatchMessageDto;
+import org.example.moono_backend.kafka.producer.BillingProducerMessageDto;
 import org.example.moono_backend.repository.EmailFailLogRepository;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.support.Acknowledgment;
@@ -25,9 +25,9 @@ public class EmailSendDltConsumer {
     @KafkaListener(topics = "queuing.billing.email.send.dlt", groupId = "cg-billing-email-send-dlt")
     public void consume(String message, Acknowledgment ack) {
 
-        BillingDispatchMessageDto dto;
+        BillingProducerMessageDto dto;
         try {
-            dto = objectMapper.readValue(message, BillingDispatchMessageDto.class);
+            dto = objectMapper.readValue(message, BillingProducerMessageDto.class);
         } catch (JsonProcessingException e) {
             log.error("DLT JSON 파싱 실패. message={}", message);
             EmailFailLog emailFailLog = EmailFailLog.builder()

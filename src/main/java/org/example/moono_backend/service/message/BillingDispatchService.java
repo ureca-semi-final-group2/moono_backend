@@ -62,7 +62,7 @@ public class BillingDispatchService {
             // 5. rawDetails 파싱 및 변환 (json 문자열을 RawDetailsDto로 파싱)
             RawDetailsDto rawDetails = parseRawDetails(messageDto.getRawDetails(), billingId);
 
-            // 6. BillingDispatchMessageDto를 BillingDispatchDto로 변환
+            // 6. BillingProducerMessageDto를 BillingConsumerMessageDto로 변환
             BillingConsumerMessageDto dispatchDto = convertToBillingDispatchDto(messageDto, rawDetails);
 
             // 7. 이메일 발송 시도
@@ -198,9 +198,9 @@ public class BillingDispatchService {
     }
 
     /**
-     * BillingDispatchMessageDto를 BillingDispatchDto로 변환
+     * BillingProducerMessageDto를 BillingConsumerMessageDto로 변환
      * 
-     * EmailService가 요구하는 BillingDispatchDto 형식으로 변환합니다.
+     * EmailService가 요구하는 BillingConsumerMessageDto 형식으로 변환합니다.
      */
     private BillingConsumerMessageDto convertToBillingDispatchDto(
             BillingProducerMessageDto messageDto, RawDetailsDto rawDetails) {
