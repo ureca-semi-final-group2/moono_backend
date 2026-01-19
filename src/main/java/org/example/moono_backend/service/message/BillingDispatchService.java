@@ -124,7 +124,7 @@ public class BillingDispatchService {
      * @return true: 금칙 시간임, false: 금칙 시간 아님
      */
     @Transactional
-    private boolean checkQuietHours(BillingProducerMessageDto messageDto, Billing billing) {
+    protected boolean checkQuietHours(BillingProducerMessageDto messageDto, Billing billing) {
         try{
             String dndStart = messageDto.getReceiver().getDndStart();
             String dndEnd = messageDto.getReceiver().getDndEnd();
