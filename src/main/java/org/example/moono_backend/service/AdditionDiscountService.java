@@ -18,7 +18,7 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class AdditionDiscountService {
+public class AdditionalServiceDiscountService {
 
     private final AdditionalServiceSubscriptionRepository additionalServiceSubscriptionRepository;
 
