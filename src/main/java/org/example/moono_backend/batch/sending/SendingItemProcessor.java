@@ -7,7 +7,7 @@ import org.example.moono_backend.batch.BatchMetrics;
 import org.example.moono_backend.domain.Billing;
 import org.example.moono_backend.domain.member.MemberCredential;
 import org.example.moono_backend.domain.member.UserDndPolicy;
-import org.example.moono_backend.kafka.BillingDispatchMessageDto;
+import org.example.moono_backend.kafka.producer.BillingProducerMessageDto;
 import org.example.moono_backend.repository.MemberCredentialRepository;
 import org.example.moono_backend.repository.UserDndPolicyRepository;
 import org.springframework.batch.item.ItemProcessor;
@@ -17,14 +17,14 @@ import lombok.RequiredArgsConstructor;
 
 @Component
 @RequiredArgsConstructor
-public class SendingItemProcessor implements ItemProcessor<Billing, BillingDispatchMessageDto> {
+public class SendingItemProcessor implements ItemProcessor<Billing, BillingProducerMessageDto> {
 
     private final BatchMetrics metrics;
     private final MemberCredentialRepository memberRepository;
     private final UserDndPolicyRepository dndRepository;
 
     @Override
-    public BillingDispatchMessageDto process(Billing billing) throws Exception {
+    public BillingProducerMessageDto process(Billing billing) throws Exception {
         long startTime = System.nanoTime();
         try {
             // [Step 1-1: 수동 N+1 발생 지점]
@@ -37,20 +37,20 @@ public class SendingItemProcessor implements ItemProcessor<Billing, BillingDispa
             }
 
             // 계층형 DTO 구조에 맞게 매핑
-            return BillingDispatchMessageDto.builder()
-                    .header(BillingDispatchMessageDto.Header.builder()
+            return BillingProducerMessageDto.builder()
+                    .header(BillingProducerMessageDto.Header.builder()
                             .billingId(billing.getId())
                             .billingMonth(billing.getBillingDate().toString())
                             .isForced(false)
                             .build())
-                    .receiver(BillingDispatchMessageDto.Receiver.builder()
+                    .receiver(BillingProducerMessageDto.Receiver.builder()
                             .name(member.getName())
                             .email(member.getEmail())
                             .phone(member.getPhoneNumber())
                             .dndStart(dnd.getStartDndTime().toString())
                             .dndEnd(dnd.getEndDndTime().toString())
                             .build())
-                    .billingSummary(BillingDispatchMessageDto.BillingSummary.builder()
+                    .billingSummary(BillingProducerMessageDto.BillingSummary.builder()
                             .totalAmount(billing.getBillingFee())
                             .dueDate(billing.getBillingDate().plusDays(15).toString())
                             .build())

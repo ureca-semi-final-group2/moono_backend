@@ -3,7 +3,7 @@ package org.example.moono_backend.batch.sending;
 import org.example.moono_backend.batch.BatchMetrics;
 import org.example.moono_backend.batch.StepMetricsListener;
 import org.example.moono_backend.domain.Billing;
-import org.example.moono_backend.kafka.BillingDispatchMessageDto;
+import org.example.moono_backend.kafka.producer.BillingProducerMessageDto;
 import org.example.moono_backend.repository.MemberCredentialRepository;
 import org.example.moono_backend.repository.UserDndPolicyRepository;
 import org.springframework.batch.core.ExitStatus;
@@ -32,7 +32,7 @@ public class SendingJobConfig {
     private final JobRepository jobRepository;
     private final PlatformTransactionManager transactionManager;
     private final EntityManagerFactory entityManagerFactory;
-    private final KafkaTemplate<String, BillingDispatchMessageDto> kafkaTemplate;
+    private final KafkaTemplate<String, BillingProducerMessageDto> kafkaTemplate;
 
     private static final int CHUNK_SIZE = 1000;
 
@@ -65,7 +65,7 @@ public class SendingJobConfig {
             SendingItemWriter sendingItemWriter // 수정: Bean으로 주입받음
     ) {
         return new StepBuilder("sendingStep", jobRepository)
-                .<Billing, BillingDispatchMessageDto>chunk(CHUNK_SIZE, transactionManager)
+                .<Billing, BillingProducerMessageDto>chunk(CHUNK_SIZE, transactionManager)
                 .reader(new SendingItemReader(entityManagerFactory))
                 .processor(sendingItemProcessor)
                 .writer(sendingItemWriter)
