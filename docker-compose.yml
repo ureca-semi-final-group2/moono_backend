@@ -42,6 +42,35 @@ services:
       - redis-data:/data
     networks:
       - moono-network
+      
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: moono-kafka-ui
+    ports:
+      - "8989:8080"
+    environment:
+      # KRaft 모드에서는 ZOOKEEPER 설정 대신 BOOTSTRAPSERVERS만 필요합니다.
+      - KAFKA_CLUSTERS_0_NAME=moono-cluster
+      - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=kafka:29092
+      - KAFKA_CLUSTERS_0_METRICS_PORT=9997
+      - DYNAMIC_CONFIG_ENABLED=true
+    depends_on:
+      - kafka
+    networks:
+      - moono-network
+
+  kafka-exporter:
+    image: danielqsj/kafka-exporter:latest
+    container_name: moono-kafka-exporter
+    command:
+      - --kafka.server=kafka:29092
+    ports:
+      - "9308:9308"
+    networks:
+      - moono-network
+    restart: always
+    depends_on:
+      - kafka
 
 volumes:
   kafka-data:

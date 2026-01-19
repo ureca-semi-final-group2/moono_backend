@@ -18,16 +18,14 @@ import org.example.moono_backend.batch.billing.dto.BillingDetailsJson;
 import org.example.moono_backend.batch.billing.dto.BillingDetailsJson.Item;
 import org.example.moono_backend.batch.billing.dto.BillingSourceRow;
 import org.example.moono_backend.batch.billing.dto.BillingWriteItem;
-import org.example.moono_backend.domain.Billing;
-import org.example.moono_backend.domain.PayStatus;
-import org.example.moono_backend.domain.SendStatus;
+import org.example.moono_backend.domain.*;
 import org.example.moono_backend.domain.discount.DiscountEntity;
 import org.example.moono_backend.domain.member.MemberCredential;
 import org.example.moono_backend.dto.DiscountInfo;
 import org.example.moono_backend.dto.OverageChargeInfo;
+import org.example.moono_backend.service.AdditionalServiceDiscountService;
 import org.example.moono_backend.service.ContractDiscountService;
 import org.example.moono_backend.service.EventDiscountService;
-import org.example.moono_backend.service.FamilyDiscountService;
 import org.example.moono_backend.service.PlanDiscountService;
 import org.example.moono_backend.support.IdGenerator;
 import org.example.moono_backend.utils.PlanCache;
@@ -73,7 +71,7 @@ public class BillingBatch {
 
     private final ContractDiscountService contractDiscountService;
     private final EventDiscountService eventDiscountService;
-    private final FamilyDiscountService familyDiscountService;
+    private final AdditionalServiceDiscountService additionalServiceDiscountService;
 
     private static final int CHUNK_SIZE = 1000;
 
@@ -143,7 +141,8 @@ public class BillingBatch {
                             : null; // null 가능
 
                     return new BillingSourceRow(
-                            rs.getString("public_info_id"),
+                        rs.getLong("register_id"),
+                        rs.getString("public_info_id"),
                             rs.getLong("plan_id"),
                             termYear,
                             contractCreatedAt,
@@ -165,7 +164,8 @@ public class BillingBatch {
 
         queryProvider.setSelectClause("""
     SELECT
-    t.sort_id AS sort_id,
+        t.register_id           AS register_id,
+        t.sort_id AS sort_id,
         t.public_info_id        AS public_info_id,
         t.plan_id               AS plan_id,
         t.term_year             AS term_year,
@@ -179,6 +179,7 @@ public class BillingBatch {
         queryProvider.setFromClause("""
     FROM (
         SELECT
+            r.id                AS register_id,
             pi.id               AS sort_id,
             pi.id               AS public_info_id,
             r.plan_id              AS plan_id,
@@ -192,7 +193,7 @@ public class BillingBatch {
         JOIN registration r ON r.public_info_id = pi.id
         LEFT JOIN contract c ON c.register_id = r.id
         JOIN usage_time ut  ON ut.public_info_id = pi.id
-        LEFT JOIN (
+          LEFT JOIN (
                    SELECT
                       pi2.family_info_id AS family_info_id,
                       COUNT(*) AS family_count
@@ -217,6 +218,8 @@ public class BillingBatch {
     public ItemProcessor<BillingSourceRow, BillingWriteItem> billingProcessor(
             @Value("#{jobParameters['now']}") String nowParam,
             MemberPreloadListener memberPreloadListener,
+            RegistrationPreloadListener registrationPreloadListener,
+            AdditionalServicePreloadListener additionalServicePreloadListener,
             PlanDiscountService planDiscountService,
             ObjectMapper objectMapper) {
         LocalDateTime now = LocalDateTime.now();
@@ -228,6 +231,8 @@ public class BillingBatch {
 
             // DB 조회가 아닌 리스너의 메모리 캐시에서 가져옴 (N + 1 방지)
             MemberCredential memberCredential = memberPreloadListener.getMember(row.publicInfoId());
+            Registration registration = registrationPreloadListener.getRegistration(row.publicInfoId());
+            List<AdditionalServiceSubscription> additionalServiceSubscriptions = additionalServicePreloadListener.getAdditionalServiceSubscriptions(row.registerId());
 
             List<DiscountInfo> discountInfoList = new ArrayList<>();
 
@@ -239,7 +244,9 @@ public class BillingBatch {
                 discountInfoList.add(birthdayMonthDiscount);
             }
 
-            familyDiscountService.calculateFamilyDiscounts(row).ifPresent(discountInfoList::add);
+            // 부가 서비스 할인
+            List<DiscountInfo> additionalServiceDiscounts = additionalServiceDiscountService.calculateAdditionalServiceDiscounts(registration, additionalServiceSubscriptions);
+            discountInfoList.addAll(additionalServiceDiscounts);
 
             // 요금제 별 과금 조회
             List<OverageChargeInfo> overageChargeInfos = planDiscountService.calculatePlanDiscounts(row);
