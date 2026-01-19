@@ -8,7 +8,8 @@ public record BillingSourceRow(
         Long planId,
         Integer termYear,
         LocalDateTime contractCreatedAt,
-        Integer callAmount,
-        Integer messageAmount,
-        Integer dataAmount) {
+        int callAmount,
+        int messageAmount,
+        int dataAmount,
+        int familyCount) {
 }

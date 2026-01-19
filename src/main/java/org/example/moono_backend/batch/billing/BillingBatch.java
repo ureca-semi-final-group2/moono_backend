@@ -90,9 +90,7 @@ public class BillingBatch {
             CompositeItemWriter<BillingWriteItem> billingCompositeWriter,
             LastIdListener lastIdStepListener,
             ChunkTimingListener<BillingSourceRow, BillingWriteItem> chunkTimingListener,
-            MemberPreloadListener memberPreloadListener,
-            RegistrationPreloadListener registrationPreloadListener,
-            AdditionalServicePreloadListener additionalServicePreloadListener) {
+            MemberPreloadListener memberPreloadListener) {
         return new StepBuilder("discountStep", jobRepository)
                 .<BillingSourceRow, BillingWriteItem>chunk(CHUNK_SIZE, platformTransactionManager)
                 .reader(billingSourceReader)
@@ -108,12 +106,6 @@ public class BillingBatch {
                 // memberPreloadListener 등록
                 .listener((ItemReadListener<? super BillingSourceRow>) memberPreloadListener)
                 .listener((ChunkListener) memberPreloadListener)
-                // registrationPreloadListener 등록
-                .listener((ItemReadListener<? super BillingSourceRow>) registrationPreloadListener)
-                .listener((ChunkListener) registrationPreloadListener)
-                // AdditionalServicePreloadListener 등록
-                .listener((ItemReadListener<? super BillingSourceRow>) additionalServicePreloadListener)
-                .listener((ChunkListener) additionalServicePreloadListener)
                 .build();
     }
 
@@ -149,14 +141,15 @@ public class BillingBatch {
                             : null; // null 가능
 
                     return new BillingSourceRow(
-                            rs.getLong("register_id"),
-                            rs.getString("public_info_id"),
+                        rs.getLong("register_id"),
+                        rs.getString("public_info_id"),
                             rs.getLong("plan_id"),
                             termYear,
                             contractCreatedAt,
                             rs.getInt("call_amount"),
                             rs.getInt("message_amount"),
-                            rs.getInt("data_amount")
+                            rs.getInt("data_amount"),
+                            rs.getInt("family_count")
                     );
                 })
                 .build();
@@ -179,7 +172,8 @@ public class BillingBatch {
         t.contract_created_at   AS contract_created_at,
         t.call_amount           AS call_amount,
         t.message_amount        AS message_amount,
-        t.data_amount           AS data_amount
+        t.data_amount           AS data_amount,
+        t.family_count AS family_count
 """);
 
         queryProvider.setFromClause("""
@@ -193,11 +187,20 @@ public class BillingBatch {
             c.created_at        AS contract_created_at,
             ut.call_amount      AS call_amount,
             ut.message_amount   AS message_amount,
-            ut.data_amount      AS data_amount
+            ut.data_amount      AS data_amount,
+            COALESCE(fc.family_count, 0) AS family_count
         FROM public_info pi
         JOIN registration r ON r.public_info_id = pi.id
         LEFT JOIN contract c ON c.register_id = r.id
         JOIN usage_time ut  ON ut.public_info_id = pi.id
+          LEFT JOIN (
+                   SELECT
+                      pi2.family_info_id AS family_info_id,
+                      COUNT(*) AS family_count
+                      FROM public_info pi2
+                      WHERE pi2.family_info_id IS NOT NULL
+                      GROUP BY pi2.family_info_id
+                    ) fc ON fc.family_info_id = pi.family_info_id
         WHERE ut.usage_date = :usageDate
     ) t
 """);
