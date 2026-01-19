@@ -43,7 +43,6 @@ public class AdditionalServicePreloadListener implements ItemReadListener<Billin
         // 만약 캐시가 비어있다면(첫 번째 process 호출 시), 수집된 ID로 한 번에 조회
         if (cache.isEmpty() && !registerIds.isEmpty()) {
             List<AdditionalServiceSubscription> additionalServiceSubscriptions = additionalServiceSubscriptionRepository.findAllByRegistrationIdsAndActiveYn(registerIds);
-            System.out.println(additionalServiceSubscriptions);
 
             for (AdditionalServiceSubscription additionalServiceSubscription : additionalServiceSubscriptions) {
                 // 특정 키 비어있으면 ArrayList 초기화 시켜주기
