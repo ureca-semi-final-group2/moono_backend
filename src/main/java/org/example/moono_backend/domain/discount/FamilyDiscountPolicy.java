@@ -77,11 +77,11 @@ public class FamilyDiscountPolicy {
             }
 
             public static DiscountTable fromBand(FamilyBand band) {
-                for (DiscountTable row : values()) {
-                    if (row.band == band)
-                        return row;
+                try {
+                    return valueOf(band.name());
+                } catch (IllegalArgumentException e) {
+                    throw new IllegalStateException("정책 테이블 누락: " + band, e);
                 }
-                throw new IllegalStateException("정책 테이블 누락: " + band);
             }
         }
     }
