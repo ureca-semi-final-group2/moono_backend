@@ -3,11 +3,12 @@ package org.example.moono_backend.batch.sending;
 import org.example.moono_backend.batch.BatchMetrics;
 import org.example.moono_backend.batch.StepMetricsListener;
 import org.example.moono_backend.domain.Billing;
-import org.example.moono_backend.kafka.BillingDispatchMessageDto;
+import org.example.moono_backend.kafka.producer.BillingDispatchMessageDto;
 import org.example.moono_backend.repository.MemberCredentialRepository;
 import org.example.moono_backend.repository.UserDndPolicyRepository;
 import org.springframework.batch.core.ChunkListener;
 import org.springframework.batch.core.ExitStatus;
+import org.springframework.batch.core.ItemReadListener;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
 import org.springframework.batch.core.StepExecution;
@@ -34,10 +35,11 @@ public class SendingJobConfig {
     private final PlatformTransactionManager transactionManager;
     private final EntityManagerFactory entityManagerFactory;
     private final KafkaTemplate<String, BillingDispatchMessageDto> kafkaTemplate;
+    private final MemberPreloadListener sendingMemberPreloadListener;
 
     private static final int CHUNK_SIZE = 1000;
 
-    private final MemberCredentialRepository memberRepository;
+    private final MemberCredentialRepository memberCredentialRepository;
     private final UserDndPolicyRepository dndRepository;
 
     /** 배치 1회 실행 동안 성능/성공실패를 누적할 계산용 메트릭 */
@@ -70,15 +72,25 @@ public class SendingJobConfig {
                 .reader(new SendingItemReader(entityManagerFactory))
                 .processor(sendingItemProcessor)
                 .writer(sendingItemWriter)
+                .listener((ItemReadListener<? super Billing>) sendingMemberPreloadListener)
+                .listener((ChunkListener) sendingMemberPreloadListener)
                 .listener((StepExecutionListener) stepMetricsListener) // sendingStep 을 실행할때 자동으로 step 전 후 에 호출
                 .listener((ChunkListener) stepMetricsListener)
                 .build();
     }
 
-    // Processor를 Bean으로 등록하여 Repository들이 자동 주입되게 함
     @Bean
-    public SendingItemProcessor sendingItemProcessor(BatchMetrics batchMetrics) {
-        return new SendingItemProcessor(batchMetrics, memberRepository, dndRepository);
+    public SendingItemProcessor sendingItemProcessor(
+            BatchMetrics batchMetrics,
+            PreloadHolder preloadHolder,
+            MemberPreloadListener sendingMemberPreloadListener) {
+
+        return new SendingItemProcessor(
+                batchMetrics,
+                this.memberCredentialRepository,
+                this.dndRepository,
+                preloadHolder,
+                sendingMemberPreloadListener);
     }
 
     // Writer도 Bean으로 등록

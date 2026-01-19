@@ -1,7 +1,7 @@
 package org.example.moono_backend.batch.sending;
 
 import org.example.moono_backend.batch.BatchMetrics;
-import org.example.moono_backend.kafka.BillingDispatchMessageDto;
+import org.example.moono_backend.kafka.producer.BillingDispatchMessageDto;
 import org.springframework.batch.item.Chunk;
 import org.springframework.batch.item.ItemWriter;
 import org.springframework.kafka.core.KafkaTemplate;

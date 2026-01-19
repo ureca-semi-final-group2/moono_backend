@@ -12,7 +12,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.*;
 
-@Component
+@Component("billingMemberPreloadListener") // 별명 부여
 @StepScope
 @RequiredArgsConstructor
 public class MemberPreloadListener implements ItemReadListener<BillingSourceRow>, ChunkListener {

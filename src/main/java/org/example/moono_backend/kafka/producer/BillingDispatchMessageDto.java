@@ -1,4 +1,8 @@
-package org.example.moono_backend.kafka;
+package org.example.moono_backend.kafka.producer;
+
+import org.example.moono_backend.domain.Billing;
+import org.example.moono_backend.domain.member.MemberCredential;
+import org.example.moono_backend.domain.member.UserDndPolicy;
 
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -55,5 +59,27 @@ public class BillingDispatchMessageDto {
         private String dueDate; // 납기일
         private long baseFee; // 기본 요금
         private long usageFee; // 사용 요금
+    }
+
+    public static BillingDispatchMessageDto from(Billing billing, MemberCredential member, UserDndPolicy dnd) {
+        return BillingDispatchMessageDto.builder()
+                .header(Header.builder()
+                        .billingId(billing.getId())
+                        .billingMonth(billing.getBillingDate().toString())
+                        .isForced(false)
+                        .build())
+                .receiver(Receiver.builder()
+                        .name(member.getName())
+                        .email(member.getEmail())
+                        .phone(member.getPhoneNumber())
+                        .dndStart(dnd.getStartDndTime().toString())
+                        .dndEnd(dnd.getEndDndTime().toString())
+                        .build())
+                .billingSummary(BillingSummary.builder()
+                        .totalAmount(billing.getBillingFee())
+                        .dueDate(billing.getBillingDate().plusDays(15).toString()) // 수정 예상
+                        .build())
+                .rawDetails(billing.getBillingDetails())
+                .build();
     }
 }

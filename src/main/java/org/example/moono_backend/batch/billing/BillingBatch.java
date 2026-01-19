@@ -90,9 +90,9 @@ public class BillingBatch {
             CompositeItemWriter<BillingWriteItem> billingCompositeWriter,
             LastIdListener lastIdStepListener,
             ChunkTimingListener<BillingSourceRow, BillingWriteItem> chunkTimingListener,
-            MemberPreloadListener memberPreloadListener,
-        RegistrationPreloadListener registrationPreloadListener,
-        AdditionalServicePreloadListener additionalServicePreloadListener) {
+            MemberPreloadListener billingMemberPreloadListener, // 별명으로 주입
+            RegistrationPreloadListener registrationPreloadListener,
+            AdditionalServicePreloadListener additionalServicePreloadListener) {
         return new StepBuilder("discountStep", jobRepository)
                 .<BillingSourceRow, BillingWriteItem>chunk(CHUNK_SIZE, platformTransactionManager)
                 .reader(billingSourceReader)
@@ -106,14 +106,14 @@ public class BillingBatch {
                 .listener((ItemProcessListener<? super BillingSourceRow, ? super BillingWriteItem>) chunkTimingListener)
                 .listener((ItemWriteListener<? super BillingWriteItem>) chunkTimingListener)
                 // memberPreloadListener 등록
-                .listener((ItemReadListener<? super BillingSourceRow>) memberPreloadListener)
-                .listener((ChunkListener) memberPreloadListener)
-            // registrationPreloadListener 등록
-            .listener((ItemReadListener<? super BillingSourceRow>) registrationPreloadListener)
-            .listener((ChunkListener) registrationPreloadListener)
-            // AdditionalServicePreloadListener 등록
-            .listener((ItemReadListener<? super BillingSourceRow>) additionalServicePreloadListener)
-            .listener((ChunkListener) additionalServicePreloadListener)
+                .listener((ItemReadListener<? super BillingSourceRow>) billingMemberPreloadListener)
+                .listener((ChunkListener) billingMemberPreloadListener)
+                // registrationPreloadListener 등록
+                .listener((ItemReadListener<? super BillingSourceRow>) registrationPreloadListener)
+                .listener((ChunkListener) registrationPreloadListener)
+                // AdditionalServicePreloadListener 등록
+                .listener((ItemReadListener<? super BillingSourceRow>) additionalServicePreloadListener)
+                .listener((ChunkListener) additionalServicePreloadListener)
                 .build();
     }
 
@@ -139,7 +139,7 @@ public class BillingBatch {
                 .queryProvider(queryProvider)
                 .parameterValues(params)
                 .pageSize(CHUNK_SIZE)
-                .rowMapper((rs, rowNum) ->{
+                .rowMapper((rs, rowNum) -> {
                     // null 처리를 위한 안전한 조회
                     Integer termYear = rs.getObject("term_year", Integer.class); // null 가능
 
@@ -149,16 +149,15 @@ public class BillingBatch {
                             : null; // null 가능
 
                     return new BillingSourceRow(
-                        rs.getLong("register_id"),
-                        rs.getString("public_info_id"),
+                            rs.getLong("register_id"),
+                            rs.getString("public_info_id"),
                             rs.getLong("plan_id"),
                             termYear,
                             contractCreatedAt,
                             rs.getInt("call_amount"),
                             rs.getInt("message_amount"),
                             rs.getInt("data_amount"),
-                            rs.getInt("family_count")
-                    );
+                            rs.getInt("family_count"));
                 })
                 .build();
     }
@@ -171,52 +170,51 @@ public class BillingBatch {
         PostgresPagingQueryProvider queryProvider = new PostgresPagingQueryProvider();
 
         queryProvider.setSelectClause("""
-    SELECT
-        t.register_id           AS register_id,
-        t.sort_id AS sort_id,
-        t.public_info_id        AS public_info_id,
-        t.plan_id               AS plan_id,
-        t.term_year             AS term_year,
-        t.contract_created_at   AS contract_created_at,
-        t.call_amount           AS call_amount,
-        t.message_amount        AS message_amount,
-        t.data_amount           AS data_amount,
-        t.family_count AS family_count
-""");
+                    SELECT
+                        t.register_id           AS register_id,
+                        t.sort_id AS sort_id,
+                        t.public_info_id        AS public_info_id,
+                        t.plan_id               AS plan_id,
+                        t.term_year             AS term_year,
+                        t.contract_created_at   AS contract_created_at,
+                        t.call_amount           AS call_amount,
+                        t.message_amount        AS message_amount,
+                        t.data_amount           AS data_amount,
+                        t.family_count AS family_count
+                """);
 
         queryProvider.setFromClause("""
-    FROM (
-        SELECT
-            r.id                AS register_id,
-            pi.id               AS sort_id,
-            pi.id               AS public_info_id,
-            r.plan_id              AS plan_id,
-            c.term_year         AS term_year,
-            c.created_at        AS contract_created_at,
-            ut.call_amount      AS call_amount,
-            ut.message_amount   AS message_amount,
-            ut.data_amount      AS data_amount,
-            COALESCE(fc.family_count, 0) AS family_count
-        FROM public_info pi
-        JOIN registration r ON r.public_info_id = pi.id
-        LEFT JOIN contract c ON c.register_id = r.id
-        JOIN usage_time ut  ON ut.public_info_id = pi.id
-          LEFT JOIN (
-                   SELECT
-                      pi2.family_info_id AS family_info_id,
-                      COUNT(*) AS family_count
-                      FROM public_info pi2
-                      WHERE pi2.family_info_id IS NOT NULL
-                      GROUP BY pi2.family_info_id
-                    ) fc ON fc.family_info_id = pi.family_info_id
-        WHERE ut.usage_date = :usageDate
-    ) t
-""");
+                    FROM (
+                        SELECT
+                            r.id                AS register_id,
+                            pi.id               AS sort_id,
+                            pi.id               AS public_info_id,
+                            r.plan_id              AS plan_id,
+                            c.term_year         AS term_year,
+                            c.created_at        AS contract_created_at,
+                            ut.call_amount      AS call_amount,
+                            ut.message_amount   AS message_amount,
+                            ut.data_amount      AS data_amount,
+                            COALESCE(fc.family_count, 0) AS family_count
+                        FROM public_info pi
+                        JOIN registration r ON r.public_info_id = pi.id
+                        LEFT JOIN contract c ON c.register_id = r.id
+                        JOIN usage_time ut  ON ut.public_info_id = pi.id
+                          LEFT JOIN (
+                                   SELECT
+                                      pi2.family_info_id AS family_info_id,
+                                      COUNT(*) AS family_count
+                                      FROM public_info pi2
+                                      WHERE pi2.family_info_id IS NOT NULL
+                                      GROUP BY pi2.family_info_id
+                                    ) fc ON fc.family_info_id = pi.family_info_id
+                        WHERE ut.usage_date = :usageDate
+                    ) t
+                """);
         if (lastId != null) {
             queryProvider.setWhereClause("WHERE sort_id > :lastId");
         }
         queryProvider.setSortKeys(Map.of("sort_id", Order.ASCENDING));
-
 
         return queryProvider;
     }
@@ -240,20 +238,23 @@ public class BillingBatch {
             // DB 조회가 아닌 리스너의 메모리 캐시에서 가져옴 (N + 1 방지)
             MemberCredential memberCredential = memberPreloadListener.getMember(row.publicInfoId());
             Registration registration = registrationPreloadListener.getRegistration(row.publicInfoId());
-            List<AdditionalServiceSubscription> additionalServiceSubscriptions = additionalServicePreloadListener.getAdditionalServiceSubscriptions(row.registerId());
+            List<AdditionalServiceSubscription> additionalServiceSubscriptions = additionalServicePreloadListener
+                    .getAdditionalServiceSubscriptions(row.registerId());
 
             List<DiscountInfo> discountInfoList = new ArrayList<>();
 
             List<DiscountInfo> contractDiscounts = contractDiscountService.calculateContractDiscounts(row, now);
             discountInfoList.addAll(contractDiscounts);
 
-            DiscountInfo birthdayMonthDiscount = eventDiscountService.birthdayMonthDiscount(memberCredential,billingFee);
+            DiscountInfo birthdayMonthDiscount = eventDiscountService.birthdayMonthDiscount(memberCredential,
+                    billingFee);
             if (birthdayMonthDiscount != null) {
                 discountInfoList.add(birthdayMonthDiscount);
             }
 
             // 부가 서비스 할인
-            List<DiscountInfo> additionalServiceDiscounts = additionalServiceDiscountService.calculateAdditionalServiceDiscounts(registration, additionalServiceSubscriptions);
+            List<DiscountInfo> additionalServiceDiscounts = additionalServiceDiscountService
+                    .calculateAdditionalServiceDiscounts(registration, additionalServiceSubscriptions);
             discountInfoList.addAll(additionalServiceDiscounts);
 
             // 요금제 별 과금 조회
@@ -263,14 +264,14 @@ public class BillingBatch {
                     .mapToInt(DiscountInfo::discountAmount)
                     .sum();
 
-            //할인 내역을 JSON으로 가공
+            // 할인 내역을 JSON으로 가공
             List<BillingDetailsJson.Item> discountsJson = discountInfoList.stream()
-                .map(d -> new BillingDetailsJson.Item(d.discountName(), d.discountAmount()))
-                .toList();
+                    .map(d -> new BillingDetailsJson.Item(d.discountName(), d.discountAmount()))
+                    .toList();
 
-            //과금 내역을 JSON으로 가공
-            List<BillingDetailsJson.Item> overagesJson=overageChargeInfos.stream()
-                    .map(o->new Item(o.code(),o.chargeAmount()))
+            // 과금 내역을 JSON으로 가공
+            List<BillingDetailsJson.Item> overagesJson = overageChargeInfos.stream()
+                    .map(o -> new Item(o.code(), o.chargeAmount()))
                     .toList();
 
             BillingDetailsJson payload = new BillingDetailsJson(discountsJson, overagesJson);
@@ -298,7 +299,7 @@ public class BillingBatch {
                             .discountAmount(d.discountAmount())
                             .build())
                     .toList();
-            return new BillingWriteItem(1L,createdBilling, discountEntities); //TODO: 파라미터 첫번쨰 값 수정
+            return new BillingWriteItem(1L, createdBilling, discountEntities); // TODO: 파라미터 첫번쨰 값 수정
         };
     }
 

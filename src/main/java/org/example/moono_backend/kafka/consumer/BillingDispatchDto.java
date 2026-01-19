@@ -1,4 +1,4 @@
-package org.example.moono_backend.kafka;
+package org.example.moono_backend.kafka.consumer;
 
 import lombok.Data;
 import java.util.List;
@@ -24,10 +24,6 @@ public class BillingDispatchDto {
         private String name;
         private String email;
         private String phone;
-
-        // conumser 가 실제 발송 시점에 판단할 금칙 시간 정보 포함.
-        private String dndStart; // 예: "21:00"
-        private String dndEnd; // 예: "08:00"
     }
 
     @Data
