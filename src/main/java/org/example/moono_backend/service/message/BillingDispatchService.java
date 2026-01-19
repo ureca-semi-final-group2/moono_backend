@@ -16,7 +16,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalTime;
+import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -244,10 +246,34 @@ public class BillingDispatchService {
         dto.setBillingSummary(summary);
 
         // Details 변환 (RawDetailsDto에서 변환)
-        // RawDetailsDto는 이미 BillingDispatchDto.OverageItem과 DiscountItem을 사용하므로 직접 할당
         BillingDispatchDto.Details details = new BillingDispatchDto.Details();
-        details.setOverageItems(rawDetails.getOverages());
-        details.setDiscountItems(rawDetails.getDiscounts());
+        
+        // OverageItems 변환
+        if (rawDetails.getOverages() != null) {
+            List<BillingDispatchDto.OverageItem> overageItems = rawDetails.getOverages().stream()
+                    .map(overage -> {
+                        BillingDispatchDto.OverageItem item = new BillingDispatchDto.OverageItem();
+                        item.setType(overage.getType());
+                        item.setAmount(overage.getAmount());
+                        return item;
+                    })
+                    .collect(Collectors.toList());
+            details.setOverageItems(overageItems);
+        }
+        
+        // DiscountItems 변환
+        if (rawDetails.getDiscounts() != null) {
+            List<BillingDispatchDto.DiscountItem> discountItems = rawDetails.getDiscounts().stream()
+                    .map(discount -> {
+                        BillingDispatchDto.DiscountItem item = new BillingDispatchDto.DiscountItem();
+                        item.setType(discount.getType());
+                        item.setAmount(discount.getAmount());
+                        return item;
+                    })
+                    .collect(Collectors.toList());
+            details.setDiscountItems(discountItems);
+        }
+        
         dto.setDetails(details);
 
         return dto;
