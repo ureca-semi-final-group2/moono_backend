@@ -309,7 +309,7 @@ public class BillingBatch {
         CompositeItemWriter<BillingWriteItem> w = new CompositeItemWriter<>();
         w.setDelegates(List.of(
                 billingWriter, // 1. billing insert
-                discountWriter // 2. fixedDiscountPolicy insert
+                discountWriter // 2. discount insert
         ));
         return w;
     }
