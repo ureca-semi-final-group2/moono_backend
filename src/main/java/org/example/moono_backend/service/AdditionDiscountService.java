@@ -4,7 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.moono_backend.domain.AdditionalServiceSubscription;
 import org.example.moono_backend.domain.Registration;
-import org.example.moono_backend.domain.discount.AdditionalService;
+import org.example.moono_backend.domain.discount.AdditionalServicePolicy;
 import org.example.moono_backend.domain.tier.TierName;
 import org.example.moono_backend.dto.DiscountInfo;
 import org.example.moono_backend.repository.AdditionalServiceSubscriptionRepository;
@@ -34,7 +34,7 @@ public class AdditionalServiceDiscountService {
 
         for (AdditionalServiceSubscription subscription : additionalServiceSubscriptions) {
             try {
-                AdditionalService service = AdditionalService.valueOf(subscription.getServiceCode());
+                AdditionalServicePolicy service = AdditionalServicePolicy.valueOf(subscription.getServiceCode());
                 int discountAmount = service.getDiscountAmount(tierName.name());
 
                 discountInfos.add(new DiscountInfo(
@@ -64,7 +64,7 @@ public class AdditionalServiceDiscountService {
 
         for (AdditionalServiceSubscription subscription : subscriptions) {
             try {
-                AdditionalService service = AdditionalService.valueOf(subscription.getServiceCode());
+                AdditionalServicePolicy service = AdditionalServicePolicy.valueOf(subscription.getServiceCode());
                 int discountAmount = service.getDiscountAmount(tierName);
 
                 discountInfos.add(new DiscountInfo(
@@ -94,7 +94,7 @@ public class AdditionalServiceDiscountService {
 
         for (AdditionalServiceSubscription subscription : subscriptions) {
             try {
-                AdditionalService service = AdditionalService.valueOf(subscription.getServiceCode());
+                AdditionalServicePolicy service = AdditionalServicePolicy.valueOf(subscription.getServiceCode());
                 totalFee += service.getFinalPrice(tierName);
             } catch (IllegalArgumentException e) {
                 log.warn("Unknown service code: {}", subscription.getServiceCode());
@@ -115,7 +115,7 @@ public class AdditionalServiceDiscountService {
 
         for (AdditionalServiceSubscription subscription : subscriptions) {
             try {
-                AdditionalService service = AdditionalService.valueOf(subscription.getServiceCode());
+                AdditionalServicePolicy service = AdditionalServicePolicy.valueOf(subscription.getServiceCode());
                 totalFee += service.getFinalPrice(tierName);
             } catch (IllegalArgumentException e) {
                 log.warn("Unknown service code: {}", subscription.getServiceCode());

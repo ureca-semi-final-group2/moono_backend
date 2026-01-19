@@ -5,7 +5,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.moono_backend.batch.billing.dto.BillingSourceRow;
 
-import org.example.moono_backend.domain.discount.Discount;
+import org.example.moono_backend.domain.discount.FixedDiscountPolicy;
 import org.example.moono_backend.dto.DiscountInfo;
 
 import org.example.moono_backend.utils.PlanCache;
@@ -33,10 +33,10 @@ public class ContractDiscountService {
         }
 
         List<DiscountInfo> discounts = new ArrayList<>();
-        discounts.add(DiscountInfo.from(Discount.SELECTION_CONTRACT, plan.getBaseFee()));
+        discounts.add(DiscountInfo.from(FixedDiscountPolicy.SELECTION_CONTRACT, plan.getBaseFee()));
 
         if (plan.isPremiumYn() && row.termYear() == PREMIUM_CONTRACT_TERM_YEARS) {
-            discounts.add(DiscountInfo.from(Discount.PREMIUM_CONTRACT, plan.getBaseFee()));
+            discounts.add(DiscountInfo.from(FixedDiscountPolicy.PREMIUM_CONTRACT, plan.getBaseFee()));
         }
 
         return discounts;
