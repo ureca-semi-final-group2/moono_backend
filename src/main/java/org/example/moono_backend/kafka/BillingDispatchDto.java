@@ -42,19 +42,19 @@ public class BillingDispatchDto {
 
     @Data
     public static class Details {
-        private List<ServiceItem> additionalServices;
-        private List<DiscountItem> discounts;
+        private List<OverageItem> overageItems;
+        private List<DiscountItem> discountItems;
     }
 
     @Data
-    public static class ServiceItem {
-        private String name;
-        private long price;
+    public static class OverageItem {
+        private String type;
+        private long amount;
     }
 
     @Data
     public static class DiscountItem {
-        private String name;
+        private String type;
         private long amount;
     }
 
