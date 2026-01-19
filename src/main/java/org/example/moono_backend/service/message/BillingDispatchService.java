@@ -29,7 +29,6 @@ public class BillingDispatchService {
     private final QuietHourService quietHourService;
     private final ObjectMapper objectMapper;
 
-
     /**
      * 청구서 발송 처리 메인 메서드
      *
@@ -48,7 +47,7 @@ public class BillingDispatchService {
             }
 
             // 2. Billing 조회
-            Billing billing = getBillingOrThrow(billingId); 
+            Billing billing = getBillingOrThrow(billingId);
 
             // 3. 강제 발송 확인
             boolean isForced = messageDto.getHeader().isForced();
@@ -81,6 +80,7 @@ public class BillingDispatchService {
             throw EmailSendException.sendFailed(billingId != null ? billingId.toString() : null, e);
         }
     }
+
     /**
      * 멱등성 확인
      * 
@@ -92,19 +92,19 @@ public class BillingDispatchService {
     private boolean checkIdempotency(Long billingId) {
         Optional<Billing> billingOpt = billingRepository.findById(billingId);
 
-        if(billingOpt.isEmpty()){
+        if (billingOpt.isEmpty()) {
             log.warn("Billing not found for billingId: {}", billingId);
             return false;
         }
         Billing billing = billingOpt.get();
         boolean isCompleted = billing.getSendStatus() == SendStatus.COMPLETED;
 
-        if(isCompleted){
-            log.info("Billing already processed for billingId: {}, status: {}"
-                    , billingId, billing.getSendStatus());
+        if (isCompleted) {
+            log.info("Billing already processed for billingId: {}, status: {}", billingId, billing.getSendStatus());
         }
         return isCompleted;
     }
+
     /**
      * Billing 조회 또는 예외 발생
      */
@@ -113,6 +113,7 @@ public class BillingDispatchService {
                 .orElseThrow(() -> BillingDispatchException.billingNotFound(
                         billingId != null ? billingId.toString() : null));
     }
+
     /**
      * 금칙 시간 확인 및 상태 업데이트
      * 
@@ -120,16 +121,16 @@ public class BillingDispatchService {
      * 금칙 시간이면 상태를 IN_QUIET_HOUR로 업데이트합니다.
      * 
      * @param messageDto 메시지 DTO
-     * @param billing 청구서 엔티티
+     * @param billing    청구서 엔티티
      * @return true: 금칙 시간임, false: 금칙 시간 아님
      */
     @Transactional
     private boolean checkQuietHours(BillingDispatchMessageDto messageDto, Billing billing) {
-        try{
+        try {
             String dndStart = messageDto.getReceiver().getDndStart();
             String dndEnd = messageDto.getReceiver().getDndEnd();
 
-            if(dndStart ==null || dndEnd ==null || dndStart.isEmpty() || dndEnd.isEmpty()){
+            if (dndStart == null || dndEnd == null || dndStart.isEmpty() || dndEnd.isEmpty()) {
                 log.debug("DND time not set for billingId: {}", billing.getId());
                 return false;
             }
@@ -138,11 +139,11 @@ public class BillingDispatchService {
             LocalTime now = LocalTime.now();
 
             boolean inQuietHours = quietHourService.isDndTime(startDndTime, endDndTime, now);
-            if(inQuietHours){
+            if (inQuietHours) {
                 updateBillingStatus(billing, SendStatus.IN_QUIET_HOUR);
                 log.info("Updated billing status to IN_QUIET_HOUR. billingId: {}, " +
-                                 "quietHours: {} - {}",
-                         billing.getId(), startDndTime, endDndTime);
+                        "quietHours: {} - {}",
+                        billing.getId(), startDndTime, endDndTime);
                 return true;
             }
             return false;
@@ -166,11 +167,11 @@ public class BillingDispatchService {
             log.debug("Billing status updated. billingId: {}, status: {}", billing.getId(), sendStatus);
         } catch (NoSuchMethodException e) {
             log.error("Billing entity does not have setSendStatus method. billingId: {}",
-                      billing.getId(), e);
+                    billing.getId(), e);
             throw new RuntimeException("Billing entity needs setter for sendStatus", e);
         } catch (Exception e) {
             log.error("Failed to update billing status using reflection. billingId: {}",
-                      billing.getId(), e);
+                    billing.getId(), e);
             throw new RuntimeException("Failed to update billing status", e);
         }
     }
@@ -204,7 +205,7 @@ public class BillingDispatchService {
      */
     private BillingDispatchDto convertToBillingDispatchDto(
             BillingDispatchMessageDto messageDto, RawDetailsDto rawDetails) {
-        
+
         BillingDispatchDto dto = new BillingDispatchDto();
 
         // Header 변환
@@ -233,8 +234,6 @@ public class BillingDispatchService {
         receiver.setName(messageDto.getReceiver().getName());
         receiver.setEmail(messageDto.getReceiver().getEmail());
         receiver.setPhone(messageDto.getReceiver().getPhone());
-        receiver.setDndStart(messageDto.getReceiver().getDndStart());
-        receiver.setDndEnd(messageDto.getReceiver().getDndEnd());
         dto.setReceiver(receiver);
 
         // BillingSummary 변환
@@ -247,7 +246,7 @@ public class BillingDispatchService {
 
         // Details 변환 (RawDetailsDto에서 변환)
         BillingDispatchDto.Details details = new BillingDispatchDto.Details();
-        
+
         // OverageItems 변환
         if (rawDetails.getOverages() != null) {
             List<BillingDispatchDto.OverageItem> overageItems = rawDetails.getOverages().stream()
@@ -260,7 +259,7 @@ public class BillingDispatchService {
                     .collect(Collectors.toList());
             details.setOverageItems(overageItems);
         }
-        
+
         // DiscountItems 변환
         if (rawDetails.getDiscounts() != null) {
             List<BillingDispatchDto.DiscountItem> discountItems = rawDetails.getDiscounts().stream()
@@ -273,7 +272,7 @@ public class BillingDispatchService {
                     .collect(Collectors.toList());
             details.setDiscountItems(discountItems);
         }
-        
+
         dto.setDetails(details);
 
         return dto;
