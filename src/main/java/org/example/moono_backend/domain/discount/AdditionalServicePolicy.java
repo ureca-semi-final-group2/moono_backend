@@ -7,7 +7,7 @@ import lombok.Getter;
  */
 
 @Getter
-public enum AdditionalService {
+public enum AdditionalServicePolicy {
     NETFLIX("넷플릭스", 13_000),
     MILLIE("밀리의 서재", 9_900),
     AI_GEMINI("AI Gemini", 35_000);
@@ -15,7 +15,7 @@ public enum AdditionalService {
     private final String displayName;
     private final int basePrice;
 
-    AdditionalService(String displayName, int basePrice) {
+    AdditionalServicePolicy(String displayName, int basePrice) {
         this.displayName = displayName;
         this.basePrice = basePrice;
     }

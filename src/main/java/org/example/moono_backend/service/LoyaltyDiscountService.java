@@ -3,7 +3,7 @@ package org.example.moono_backend.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.moono_backend.domain.Registration;
-import org.example.moono_backend.domain.discount.LoyaltyDiscount;
+import org.example.moono_backend.domain.discount.LoyaltyDiscountPolicy;
 import org.example.moono_backend.dto.DiscountInfo;
 import org.example.moono_backend.repository.RegistrationRepository;
 import org.springframework.stereotype.Service;
@@ -52,17 +52,17 @@ public class LoyaltyDiscountService {
         long daysSinceRegistration = ChronoUnit.DAYS.between(registerDate, now.toLocalDate());
 
         // 해당하는 장기 고객 할인 등급 찾기
-        LoyaltyDiscount loyaltyDiscount = LoyaltyDiscount.findByDays(daysSinceRegistration);
+        LoyaltyDiscountPolicy loyaltyDiscountPolicy = LoyaltyDiscountPolicy.findByDays(daysSinceRegistration);
 
-        if (loyaltyDiscount == null) {
+        if (loyaltyDiscountPolicy == null) {
             return Optional.empty();
         }
 
-        int discountAmount = loyaltyDiscount.calculateDiscountAmount(baseFee);
+        int discountAmount = loyaltyDiscountPolicy.calculateDiscountAmount(baseFee);
 
         return Optional.of(new DiscountInfo(
-                loyaltyDiscount.name(),
-                "장기 고객 할인 (" + loyaltyDiscount.getDisplayName() + ")",
+                loyaltyDiscountPolicy.name(),
+                "장기 고객 할인 (" + loyaltyDiscountPolicy.getDisplayName() + ")",
                 discountAmount
         ));
     }

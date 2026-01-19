@@ -23,7 +23,7 @@ import org.example.moono_backend.domain.discount.DiscountEntity;
 import org.example.moono_backend.domain.member.MemberCredential;
 import org.example.moono_backend.dto.DiscountInfo;
 import org.example.moono_backend.dto.OverageChargeInfo;
-import org.example.moono_backend.service.AdditionalServiceDiscountService;
+import org.example.moono_backend.service.AdditionDiscountService;
 import org.example.moono_backend.service.ContractDiscountService;
 import org.example.moono_backend.service.EventDiscountService;
 import org.example.moono_backend.service.PlanDiscountService;
@@ -71,7 +71,7 @@ public class BillingBatch {
 
     private final ContractDiscountService contractDiscountService;
     private final EventDiscountService eventDiscountService;
-    private final AdditionalServiceDiscountService additionalServiceDiscountService;
+    private final AdditionDiscountService additionDiscountService;
 
     private static final int CHUNK_SIZE = 1000;
 
@@ -253,7 +253,7 @@ public class BillingBatch {
             }
 
             // 부가 서비스 할인
-            List<DiscountInfo> additionalServiceDiscounts = additionalServiceDiscountService.calculateAdditionalServiceDiscounts(registration, additionalServiceSubscriptions);
+            List<DiscountInfo> additionalServiceDiscounts = additionDiscountService.calculateAdditionalServiceDiscounts(registration, additionalServiceSubscriptions);
             discountInfoList.addAll(additionalServiceDiscounts);
 
             // 요금제 별 과금 조회
@@ -309,7 +309,7 @@ public class BillingBatch {
         CompositeItemWriter<BillingWriteItem> w = new CompositeItemWriter<>();
         w.setDelegates(List.of(
                 billingWriter, // 1. billing insert
-                discountWriter // 2. discount insert
+                discountWriter // 2. fixedDiscountPolicy insert
         ));
         return w;
     }

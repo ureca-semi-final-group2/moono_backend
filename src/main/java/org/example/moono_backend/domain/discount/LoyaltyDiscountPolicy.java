@@ -7,7 +7,7 @@ import lombok.Getter;
  * 선택 약정 할인 가입 시에만 적용
  */
 @Getter
-public enum LoyaltyDiscount {
+public enum LoyaltyDiscountPolicy {
     TIER_7_TO_9_YEARS("7년~9년", 2555, 3649, 7),
     TIER_10_TO_14_YEARS("10년~14년", 3650, 5474, 10),
     TIER_15_PLUS_YEARS("15년 이상", 5475, Integer.MAX_VALUE, 15);
@@ -17,7 +17,7 @@ public enum LoyaltyDiscount {
     private final int maxDays;
     private final int discountRate; // 할인율 (%)
 
-    LoyaltyDiscount(String displayName, int minDays, int maxDays, int discountRate) {
+    LoyaltyDiscountPolicy(String displayName, int minDays, int maxDays, int discountRate) {
         this.displayName = displayName;
         this.minDays = minDays;
         this.maxDays = maxDays;
@@ -29,8 +29,8 @@ public enum LoyaltyDiscount {
      * @param daysSinceRegistration 가입 후 경과 일수
      * @return 해당하는 할인 등급, 없으면 null
      */
-    public static LoyaltyDiscount findByDays(long daysSinceRegistration) {
-        for (LoyaltyDiscount discount : values()) {
+    public static LoyaltyDiscountPolicy findByDays(long daysSinceRegistration) {
+        for (LoyaltyDiscountPolicy discount : values()) {
             if (daysSinceRegistration >= discount.minDays &&
                     daysSinceRegistration <= discount.maxDays) {
                 return discount;
