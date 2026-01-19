@@ -6,6 +6,7 @@ import org.example.moono_backend.domain.Billing;
 import org.example.moono_backend.kafka.BillingDispatchMessageDto;
 import org.example.moono_backend.repository.MemberCredentialRepository;
 import org.example.moono_backend.repository.UserDndPolicyRepository;
+import org.springframework.batch.core.ChunkListener;
 import org.springframework.batch.core.ExitStatus;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
@@ -69,7 +70,8 @@ public class SendingJobConfig {
                 .reader(new SendingItemReader(entityManagerFactory))
                 .processor(sendingItemProcessor)
                 .writer(sendingItemWriter)
-                .listener(stepMetricsListener) // sendingStep 을 실행할때 자동으로 step 전 후 에 호출
+                .listener((StepExecutionListener) stepMetricsListener) // sendingStep 을 실행할때 자동으로 step 전 후 에 호출
+                .listener((ChunkListener) stepMetricsListener)
                 .build();
     }
 
