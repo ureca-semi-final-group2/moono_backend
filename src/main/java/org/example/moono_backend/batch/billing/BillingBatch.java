@@ -90,7 +90,9 @@ public class BillingBatch {
             CompositeItemWriter<BillingWriteItem> billingCompositeWriter,
             LastIdListener lastIdStepListener,
             ChunkTimingListener<BillingSourceRow, BillingWriteItem> chunkTimingListener,
-            MemberPreloadListener memberPreloadListener) {
+            MemberPreloadListener memberPreloadListener,
+        RegistrationPreloadListener registrationPreloadListener,
+        AdditionalServicePreloadListener additionalServicePreloadListener) {
         return new StepBuilder("discountStep", jobRepository)
                 .<BillingSourceRow, BillingWriteItem>chunk(CHUNK_SIZE, platformTransactionManager)
                 .reader(billingSourceReader)
@@ -106,6 +108,12 @@ public class BillingBatch {
                 // memberPreloadListener 등록
                 .listener((ItemReadListener<? super BillingSourceRow>) memberPreloadListener)
                 .listener((ChunkListener) memberPreloadListener)
+            // registrationPreloadListener 등록
+            .listener((ItemReadListener<? super BillingSourceRow>) registrationPreloadListener)
+            .listener((ChunkListener) registrationPreloadListener)
+            // AdditionalServicePreloadListener 등록
+            .listener((ItemReadListener<? super BillingSourceRow>) additionalServicePreloadListener)
+            .listener((ChunkListener) additionalServicePreloadListener)
                 .build();
     }
 
