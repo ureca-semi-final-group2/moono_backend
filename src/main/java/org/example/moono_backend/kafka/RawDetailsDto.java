@@ -20,7 +20,7 @@ public class RawDetailsDto {
     private List<DiscountItem> discounts; //할인 내역
 
     @Data
-    public static class OverageItem{
+    public static class OverageItem {
         @JsonProperty("type")
         private String type; // "data", "voice", "sms"
 
@@ -29,7 +29,7 @@ public class RawDetailsDto {
     }
 
     @Data
-    public static class DiscountItem{
+    public static class DiscountItem {
         @JsonProperty("type")
         private String type; // "select_contract", "event" 등등
         @JsonProperty("amount")
