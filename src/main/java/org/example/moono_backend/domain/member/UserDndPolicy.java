@@ -20,11 +20,11 @@ public class UserDndPolicy {
 
     private String publicInfoId;
 
+    private boolean isDndActive; // 금칙 시간 활성화 여부
+
     private LocalTime startDndTime;
 
     private LocalTime endDndTime;
-
-    private boolean isDndActive;
 
     @Column(length = 5)
     private String sendDay; // 15 or 21
