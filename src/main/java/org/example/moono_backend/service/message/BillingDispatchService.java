@@ -126,8 +126,7 @@ public class BillingDispatchService {
      */
     @Transactional
     private boolean checkQuietHours(BillingProducerMessageDto messageDto, Billing billing) {
-    protected boolean checkQuietHours(BillingProducerMessageDto messageDto, Billing billing) {
-        try{
+        try {
             String dndStart = messageDto.getReceiver().getDndStart();
             String dndEnd = messageDto.getReceiver().getDndEnd();
 
@@ -324,4 +323,3 @@ public class BillingDispatchService {
         };
     }
 }
- 
