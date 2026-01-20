@@ -8,15 +8,9 @@ import org.example.moono_backend.domain.Billing;
 import org.example.moono_backend.domain.SendStatus;
 import org.example.moono_backend.exception.BillingDispatchException;
 import org.example.moono_backend.exception.EmailSendException;
-<<<<<<< HEAD
-import org.example.moono_backend.kafka.consumer.BillingDispatchDto;
-import org.example.moono_backend.kafka.consumer.RawDetailsDto;
-import org.example.moono_backend.kafka.consumer.BillingDispatchDto;
-=======
 import org.example.moono_backend.kafka.RawDetailsDto;
 import org.example.moono_backend.kafka.consumer.BillingConsumerMessageDto;
 import org.example.moono_backend.kafka.producer.BillingProducerMessageDto;
->>>>>>> 6fb031291537858862afa3e0247fb2d52c474eda
 import org.example.moono_backend.repository.BillingRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -42,11 +36,7 @@ public class BillingDispatchService {
      * EmailFailLog 저장은 DLT Consumer에서 처리
      */
     @Transactional
-<<<<<<< HEAD
-    public void process(BillingDispatchDto messageDto) throws EmailSendException {
-=======
     public void process(BillingProducerMessageDto messageDto) throws EmailSendException {
->>>>>>> 6fb031291537858862afa3e0247fb2d52c474eda
         Long billingId = messageDto.getHeader().getBillingId();
         log.info("Processing billingId: {}", billingId);
 
@@ -135,13 +125,9 @@ public class BillingDispatchService {
      * @return true: 금칙 시간임, false: 금칙 시간 아님
      */
     @Transactional
-<<<<<<< HEAD
-    private boolean checkQuietHours(BillingDispatchMessageDto messageDto, Billing billing) {
-        try {
-=======
     private boolean checkQuietHours(BillingProducerMessageDto messageDto, Billing billing) {
+    protected boolean checkQuietHours(BillingProducerMessageDto messageDto, Billing billing) {
         try{
->>>>>>> 6fb031291537858862afa3e0247fb2d52c474eda
             String dndStart = messageDto.getReceiver().getDndStart();
             String dndEnd = messageDto.getReceiver().getDndEnd();
 
@@ -218,17 +204,10 @@ public class BillingDispatchService {
      * 
      * EmailService가 요구하는 BillingConsumerMessageDto 형식으로 변환합니다.
      */
-<<<<<<< HEAD
-    private BillingDispatchDto convertToBillingDispatchDto(
-            BillingDispatchMessageDto messageDto, RawDetailsDto rawDetails) {
-
-        BillingDispatchDto dto = new BillingDispatchDto();
-=======
     private BillingConsumerMessageDto convertToBillingDispatchDto(
             BillingProducerMessageDto messageDto, RawDetailsDto rawDetails) {
         
         BillingConsumerMessageDto dto = new BillingConsumerMessageDto();
->>>>>>> 6fb031291537858862afa3e0247fb2d52c474eda
 
         // Header 변환
         BillingConsumerMessageDto.Header header = new BillingConsumerMessageDto.Header();
@@ -256,6 +235,7 @@ public class BillingDispatchService {
         receiver.setName(messageDto.getReceiver().getName());
         receiver.setEmail(messageDto.getReceiver().getEmail());
         receiver.setPhone(messageDto.getReceiver().getPhone());
+        // 금칙시간은 BillingProducerMessageDto에서 checkQuietHours()에서만 사용됨
         dto.setReceiver(receiver);
 
         // BillingSummary 변환
@@ -267,16 +247,10 @@ public class BillingDispatchService {
         dto.setBillingSummary(summary);
 
         // Details 변환 (RawDetailsDto에서 변환)
-<<<<<<< HEAD
-        BillingDispatchDto.Details details = new BillingDispatchDto.Details();
-
-        // OverageItems 변환
-=======
         // 이메일 템플릿 요구사항에 맞게 overageItem과 discountItem으로 변환
         BillingConsumerMessageDto.Details details = new BillingConsumerMessageDto.Details();
         
         // Overages를 overageItem으로 변환 (type -> name, amount -> price)
->>>>>>> 6fb031291537858862afa3e0247fb2d52c474eda
         if (rawDetails.getOverages() != null) {
             List<BillingConsumerMessageDto.AdditionalServiceItem> overageItems = 
                 rawDetails.getOverages().stream()
@@ -290,13 +264,8 @@ public class BillingDispatchService {
                     .collect(Collectors.toList());
             details.setOverageItem(overageItems);
         }
-<<<<<<< HEAD
-
-        // DiscountItems 변환
-=======
         
         // Discounts를 discountItem으로 변환 (type -> name)
->>>>>>> 6fb031291537858862afa3e0247fb2d52c474eda
         if (rawDetails.getDiscounts() != null) {
             List<BillingConsumerMessageDto.DiscountItem> discountItems = 
                 rawDetails.getDiscounts().stream()
@@ -355,3 +324,4 @@ public class BillingDispatchService {
         };
     }
 }
+ 
