@@ -11,9 +11,11 @@ import org.springframework.batch.core.ItemReadListener;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
 import org.springframework.batch.core.StepExecutionListener;
+import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.core.job.builder.JobBuilder;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.builder.StepBuilder;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -78,17 +80,20 @@ public class SendingJobConfig {
     }
 
     @Bean
+    @StepScope
     public SendingItemProcessor sendingItemProcessor(
             BatchMetrics batchMetrics,
             PreloadHolder preloadHolder,
-            MemberPreloadListener sendingMemberPreloadListener) {
+            MemberPreloadListener sendingMemberPreloadListener,
+            @Value("#{jobParameters['isForced'] ?: 'false'}") String isForcedStr) {
 
         return new SendingItemProcessor(
                 batchMetrics,
                 this.memberCredentialRepository,
                 this.dndRepository,
                 preloadHolder,
-                sendingMemberPreloadListener);
+                sendingMemberPreloadListener,
+                isForcedStr);
     }
 
     // Writer도 Bean으로 등록
