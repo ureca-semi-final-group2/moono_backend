@@ -13,6 +13,7 @@ import org.example.moono_backend.kafka.consumer.BillingConsumerMessageDto;
 import org.example.moono_backend.kafka.producer.BillingProducerMessageDto;
 import org.example.moono_backend.repository.BillingRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalTime;
@@ -34,50 +35,123 @@ public class BillingDispatchService {
      *
      * 실패 시 예외 던져 Consumer가 재시도하거나 DLT로 보내기
      * EmailFailLog 저장은 DLT Consumer에서 처리
+     * 
+     * 트랜잭션 관리:
+     * - DB 업데이트는 트랜잭션 내부에서 처리
+     * - 이메일 발송은 트랜잭션 외부에서 처리 (외부 API 호출)
      */
-    @Transactional
     public void process(BillingProducerMessageDto messageDto) throws EmailSendException {
         Long billingId = messageDto.getHeader().getBillingId();
-        log.info("Processing billingId: {}", billingId);
+        log.info("[Dispatch] 청구서 발송 처리 시작. billingId: {}", billingId);
 
         try {
-            // 1. 멱등성 확인 : 이미 completed이면 처리하지 않음 -> 중복 발송 방지
-            if (checkIdempotency(billingId)) {
-                return;
+            // 트랜잭션 내부: DB 조회 및 상태 업데이트
+            ProcessResult result = processInternal(messageDto);
+            
+            // 트랜잭션 외부: 이메일 발송 (외부 API 호출)
+            if (result.shouldSendEmail()) {
+                sendEmailAfterTransaction(result.getDispatchDto(), billingId);
             }
-
-            // 2. Billing 조회
-            Billing billing = getBillingOrThrow(billingId);
-
-            // 3. 강제 발송 확인
-            boolean isForced = messageDto.getHeader().isForced();
-
-            // 4. 금칙 시간 확인 (강제 발송이 아닌 경우)
-            if (!isForced && checkQuietHours(messageDto, billing)) {
-                log.info("금칙 시간 확인 중.. billingId: {}", billingId);
-                return;
-            }
-
-            // 5. rawDetails 파싱 및 변환 (json 문자열을 RawDetailsDto로 파싱)
-            RawDetailsDto rawDetails = parseRawDetails(messageDto.getRawDetails(), billingId);
-
-            // 6. BillingProducerMessageDto를 BillingConsumerMessageDto로 변환
-            BillingConsumerMessageDto dispatchDto = convertToBillingDispatchDto(messageDto, rawDetails);
-
-            // 7. 이메일 발송 시도
-            emailService.sendBillingEmail(dispatchDto);
-
-            // 8. 발송 완료 상태 업데이트
-            updateBillingStatus(billing, SendStatus.COMPLETED);
-            log.info("Billing email sent successfully. billingId: {}", billingId);
 
         } catch (EmailSendException e) {
             // 이메일 발송 실패는 그대로 전파하여 Consumer가 재시도하도록 함
-            log.error("Email send failed for billingId: {}", billingId, e);
+            log.error("[Dispatch] 이메일 발송 실패. billingId: {}", billingId, e);
             throw e;
         } catch (Exception e) {
-            log.error("Unexpected error processing billingId: {}", billingId, e);
+            log.error("[Dispatch] 청구서 발송 처리 중 예상치 못한 오류. billingId: {}", billingId, e);
             throw EmailSendException.sendFailed(billingId != null ? billingId.toString() : null, e);
+        }
+    }
+
+    /**
+     * 트랜잭션 내부에서 수행되는 DB 작업
+     * 
+     * - 멱등성 확인
+     * - Billing 조회
+     * - 금칙 시간 확인 및 상태 업데이트
+     * - DTO 변환 준비
+     * 
+     * @param messageDto 메시지 DTO
+     * @return 처리 결과 (이메일 발송 여부 및 DTO 포함)
+     */
+    @Transactional
+    private ProcessResult processInternal(BillingProducerMessageDto messageDto) {
+        Long billingId = messageDto.getHeader().getBillingId();
+
+        // 1. 멱등성 확인 : 이미 completed이면 처리하지 않음 -> 중복 발송 방지
+        if (checkIdempotency(billingId)) {
+            return ProcessResult.skip();
+        }
+
+        // 2. Billing 조회
+        Billing billing = getBillingOrThrow(billingId);
+
+        // 3. 강제 발송 확인
+        boolean isForced = messageDto.getHeader().isForced();
+
+        // 4. 금칙 시간 확인 (강제 발송이 아닌 경우)
+        if (!isForced && checkQuietHours(messageDto, billing)) {
+            log.info("[Dispatch] 금칙 시간으로 인해 발송 보류. billingId: {}", billingId);
+            return ProcessResult.skip();
+        }
+
+        // 5. rawDetails 파싱 및 변환 (json 문자열을 RawDetailsDto로 파싱)
+        RawDetailsDto rawDetails = parseRawDetails(messageDto.getRawDetails(), billingId);
+
+        // 6. BillingProducerMessageDto를 BillingConsumerMessageDto로 변환
+        BillingConsumerMessageDto dispatchDto = convertToBillingDispatchDto(messageDto, rawDetails);
+
+        // 7. 발송 완료 상태 업데이트 (트랜잭션 내부에서 커밋)
+        updateBillingStatus(billing, SendStatus.COMPLETED);
+        log.info("[Dispatch] 청구서 상태 업데이트 완료. billingId: {}", billingId);
+
+        return ProcessResult.send(dispatchDto);
+    }
+
+    /**
+     * 트랜잭션 외부에서 수행되는 이메일 발송
+     * 
+     * 외부 API 호출이므로 트랜잭션과 분리하여 처리합니다.
+     * DB 업데이트가 커밋된 후에 이메일을 발송합니다.
+     * 
+     * @param dispatchDto 이메일 발송용 DTO
+     * @param billingId 청구서 ID
+     * @throws EmailSendException 이메일 발송 실패 시
+     */
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    private void sendEmailAfterTransaction(BillingConsumerMessageDto dispatchDto, Long billingId) 
+            throws EmailSendException {
+        log.info("[Dispatch] 이메일 발송 시작 (트랜잭션 외부). billingId: {}", billingId);
+        emailService.sendBillingEmail(dispatchDto);
+        log.info("[Dispatch] 청구서 발송 처리 완료. billingId: {}", billingId);
+    }
+
+    /**
+     * 처리 결과를 담는 내부 클래스
+     */
+    private static class ProcessResult {
+        private final boolean shouldSendEmail;
+        private final BillingConsumerMessageDto dispatchDto;
+
+        private ProcessResult(boolean shouldSendEmail, BillingConsumerMessageDto dispatchDto) {
+            this.shouldSendEmail = shouldSendEmail;
+            this.dispatchDto = dispatchDto;
+        }
+
+        static ProcessResult skip() {
+            return new ProcessResult(false, null);
+        }
+
+        static ProcessResult send(BillingConsumerMessageDto dispatchDto) {
+            return new ProcessResult(true, dispatchDto);
+        }
+
+        boolean shouldSendEmail() {
+            return shouldSendEmail;
+        }
+
+        BillingConsumerMessageDto getDispatchDto() {
+            return dispatchDto;
         }
     }
 
@@ -93,14 +167,14 @@ public class BillingDispatchService {
         Optional<Billing> billingOpt = billingRepository.findById(billingId);
 
         if (billingOpt.isEmpty()) {
-            log.warn("Billing not found for billingId: {}", billingId);
+            log.warn("[Dispatch] 청구서를 찾을 수 없음. billingId: {}", billingId);
             return false;
         }
         Billing billing = billingOpt.get();
         boolean isCompleted = billing.getSendStatus() == SendStatus.COMPLETED;
 
         if (isCompleted) {
-            log.info("Billing already processed for billingId: {}, status: {}", billingId, billing.getSendStatus());
+            log.info("[Dispatch] 이미 처리된 청구서. billingId: {}, status: {}", billingId, billing.getSendStatus());
         }
         return isCompleted;
     }
@@ -120,18 +194,20 @@ public class BillingDispatchService {
      * 현재 시간이 사용자의 금칙 시간에 해당하는지 확인하고,
      * 금칙 시간이면 상태를 IN_QUIET_HOUR로 업데이트합니다.
      * 
+     * 주의: 같은 클래스 내 private 메서드이므로 @Transactional이 적용되지 않습니다.
+     * 상위 메서드(processInternal)의 트랜잭션을 사용합니다.
+     * 
      * @param messageDto 메시지 DTO
      * @param billing    청구서 엔티티
      * @return true: 금칙 시간임, false: 금칙 시간 아님
      */
-    @Transactional
     private boolean checkQuietHours(BillingProducerMessageDto messageDto, Billing billing) {
         try {
             String dndStart = messageDto.getReceiver().getDndStart();
             String dndEnd = messageDto.getReceiver().getDndEnd();
 
             if (dndStart == null || dndEnd == null || dndStart.isEmpty() || dndEnd.isEmpty()) {
-                log.debug("DND time not set for billingId: {}", billing.getId());
+                log.debug("[Dispatch] 금칙 시간 미설정. billingId: {}", billing.getId());
                 return false;
             }
             LocalTime startDndTime = LocalTime.parse(dndStart);
@@ -141,15 +217,15 @@ public class BillingDispatchService {
             boolean inQuietHours = quietHourService.isDndTime(startDndTime, endDndTime, now);
             if (inQuietHours) {
                 updateBillingStatus(billing, SendStatus.IN_QUIET_HOUR);
-                log.info("Updated billing status to IN_QUIET_HOUR. billingId: {}, " +
-                        "quietHours: {} - {}",
+                log.info("[Dispatch] 청구서 상태를 IN_QUIET_HOUR로 업데이트. billingId: {}, " +
+                        "금칙 시간: {} - {}",
                         billing.getId(), startDndTime, endDndTime);
                 return true;
             }
             return false;
 
         } catch (Exception e) {
-            log.error("Failed to check DND time for billingId: {}", billing.getId(), e);
+            log.error("[Dispatch] 금칙 시간 확인 실패. billingId: {}", billing.getId(), e);
             return false;
         }
     }
@@ -164,13 +240,13 @@ public class BillingDispatchService {
             java.lang.reflect.Method setter = Billing.class.getMethod("setSendStatus", SendStatus.class);
             setter.invoke(billing, sendStatus);
             billingRepository.save(billing);
-            log.debug("Billing status updated. billingId: {}, status: {}", billing.getId(), sendStatus);
+            log.debug("[Dispatch] 청구서 상태 업데이트 완료. billingId: {}, status: {}", billing.getId(), sendStatus);
         } catch (NoSuchMethodException e) {
-            log.error("Billing entity does not have setSendStatus method. billingId: {}",
+            log.error("[Dispatch] Billing 엔티티에 setSendStatus 메서드가 없음. billingId: {}",
                     billing.getId(), e);
             throw new RuntimeException("Billing entity needs setter for sendStatus", e);
         } catch (Exception e) {
-            log.error("Failed to update billing status using reflection. billingId: {}",
+            log.error("[Dispatch] Reflection을 사용한 청구서 상태 업데이트 실패. billingId: {}",
                     billing.getId(), e);
             throw new RuntimeException("Failed to update billing status", e);
         }
@@ -181,16 +257,16 @@ public class BillingDispatchService {
      */
     private RawDetailsDto parseRawDetails(String rawDetails, Long billingId) {
         if (rawDetails == null || rawDetails.isEmpty()) {
-            log.warn("rawDetails is null or empty for billingId: {}", billingId);
+            log.warn("[Dispatch] rawDetails가 null이거나 비어있음. billingId: {}", billingId);
             return new RawDetailsDto(); // 빈 객체 반환
         }
 
         try {
             RawDetailsDto parsed = objectMapper.readValue(rawDetails, RawDetailsDto.class);
-            log.debug("Successfully parsed rawDetails for billingId: {}", billingId);
+            log.debug("[Dispatch] rawDetails JSON 파싱 성공. billingId: {}", billingId);
             return parsed;
         } catch (JsonProcessingException e) {
-            log.error("Failed to parse rawDetails JSON for billingId: {}", billingId, e);
+            log.error("[Dispatch] rawDetails JSON 파싱 실패. billingId: {}", billingId, e);
             throw new BillingDispatchException(
                     org.example.moono_backend.exception.ErrorCode.JSON_PARSING_FAILED,
                     billingId != null ? billingId.toString() : null,
@@ -222,10 +298,10 @@ public class BillingDispatchService {
                 header.getClass().getMethod("setIsForced", boolean.class)
                         .invoke(header, messageDto.getHeader().isForced());
             } catch (Exception ex) {
-                log.warn("Failed to set isForced field", ex);
+                log.warn("[Dispatch] isForced 필드 설정 실패", ex);
             }
         } catch (Exception e) {
-            log.warn("Failed to set isForced field", e);
+            log.warn("[Dispatch] isForced 필드 설정 실패", e);
         }
         dto.setHeader(header);
 

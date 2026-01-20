@@ -322,27 +322,38 @@ public class BillingBatch {
     @Bean
     public JdbcBatchItemWriter<BillingWriteItem> billingWriter(DataSource dataSource) {
         String sql = """
-                    INSERT INTO billing (
-                        public_info_id,
-                        usage_id,
-                        billing_fee,
-                        status,
-                        send_status,
-                        billing_date,
-                        paid_date,
-                        billing_details
-                    )
-                    VALUES (
-                        :publicInfoId,
-                        :usageId,
-                        :billingFee,
-                        :status,
-                        :sendStatus,
-                        :billingDate,
-                        :paidDate,
-                        CAST(:billingDetails AS jsonb)
-                    )
-                """;
+                INSERT INTO billing (
+                  id,
+                  public_info_id,
+                  usage_id,
+                  billing_fee,
+                  status,
+                  send_status,
+                  billing_date,
+                  paid_date,
+                  billing_details
+                )
+                VALUES (
+                  :id,
+                  :publicInfoId,
+                  :usageId,
+                  :billingFee,
+                  :status,
+                  :sendStatus,
+                  :billingDate,
+                  :paidDate,
+                  CAST(:billingDetails AS jsonb)
+                )
+                ON CONFLICT (public_info_id, (DATE_TRUNC('month', billing_date)::DATE))
+                DO UPDATE SET
+                  usage_id        = EXCLUDED.usage_id,
+                  billing_fee     = EXCLUDED.billing_fee,
+                  status          = EXCLUDED.status,
+                  send_status     = EXCLUDED.send_status,
+                  billing_date    = EXCLUDED.billing_date,
+                  paid_date       = EXCLUDED.paid_date,
+                  billing_details = EXCLUDED.billing_details;
+            """;
 
         return new JdbcBatchItemWriterBuilder<BillingWriteItem>()
                 .dataSource(dataSource)
@@ -351,6 +362,7 @@ public class BillingBatch {
                     Billing b = item.billing();
                     MapSqlParameterSource p = new MapSqlParameterSource();
 
+                    p.addValue("id", b.getId(), Types.BIGINT);
                     p.addValue("publicInfoId", b.getPublicInfoId(), Types.VARCHAR);
                     p.addValue("usageId", b.getUsageId(), Types.BIGINT);
 
