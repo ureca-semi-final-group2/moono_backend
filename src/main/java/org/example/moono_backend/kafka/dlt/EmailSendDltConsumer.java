@@ -24,12 +24,13 @@ public class EmailSendDltConsumer {
     @Transactional
     @KafkaListener(topics = "queuing.billing.email.send.dlt", groupId = "cg-billing-email-send-dlt")
     public void consume(String message, Acknowledgment ack) {
+        log.info("[DLT] DLT 메시지 수신 시작");
 
         BillingProducerMessageDto dto;
         try {
             dto = objectMapper.readValue(message, BillingProducerMessageDto.class);
         } catch (JsonProcessingException e) {
-            log.error("DLT JSON 파싱 실패. message={}", message);
+            log.error("[DLT] JSON 파싱 실패 - ParseStatus.FAIL로 저장. message={}", message, e);
             EmailFailLog emailFailLog = EmailFailLog.builder()
                     .publicInfoId(null)
                     .payload(message)
@@ -37,6 +38,7 @@ public class EmailSendDltConsumer {
                     .build();
             emailFailLogRepository.save(emailFailLog);
             ack.acknowledge();
+            log.info("[DLT] EmailFailLog 저장 완료 (ParseStatus.FAIL)");
             return;
         }
 
@@ -49,5 +51,6 @@ public class EmailSendDltConsumer {
 
         emailFailLogRepository.save(emailFailLog);
         ack.acknowledge();
+        log.info("[DLT] EmailFailLog 저장 완료 (ParseStatus.SUCCESS). publicInfoId: {}", publicInfoId);
     }
 }
