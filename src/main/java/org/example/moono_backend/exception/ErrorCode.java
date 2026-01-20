@@ -17,6 +17,9 @@ public enum ErrorCode {
     // ========== 금칙시간 관련 ==========
     IN_QUIET_HOURS("BILLING_004", "현재 금칙시간입니다.", ErrorType.INFO),
 
+    // ========== JPA 조회 관련 ==========
+    ENTITY_NOT_FOUND("COMMON_001", "요청한 엔티티를 찾을 수 없습니다.", ErrorType.WARNING),
+
     // ========== 이메일 발송 관련 ==========
     EMAIL_TEMPLATE_RENDER_FAILED("EMAIL_001", "이메일 템플릿 렌더링에 실패했습니다.", ErrorType.ERROR),
     EMAIL_SEND_FAILED("EMAIL_002", "이메일 발송에 실패했습니다.", ErrorType.ERROR),

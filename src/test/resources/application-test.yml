@@ -1,0 +1,54 @@
+spring:
+  # 테스트용 H2 데이터베이스 설정
+  datasource:
+    driver-class-name: org.h2.Driver
+    url: jdbc:h2:mem:testdb;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH
+    username: sa
+    password:
+
+  jpa:
+    hibernate:
+      # 테스트에서는 create-drop 사용 (테스트 종료 시 자동 삭제)
+      ddl-auto: create-drop
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+        format_sql: true
+        use_sql_comments: true
+    defer-datasource-initialization: false
+
+  # Kafka 설정 (EmbeddedKafka 사용)
+  kafka:
+    bootstrap-servers: ${spring.embedded.kafka.brokers:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+    consumer:
+      group-id: test-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      enable-auto-commit: false
+      # JSON 역직렬화 시 trusted packages 설정 (보안)
+      properties:
+        spring.json.trusted.packages: "*"  # 모든 패키지 신뢰 (테스트 환경)
+        spring.json.value.default.type: org.example.moono_backend.kafka.producer.BillingProducerMessageDto
+    listener:
+      ack-mode: manual_immediate
+
+  batch:
+    jdbc:
+      initialize-schema: always
+    job:
+      enabled: false
+
+logging:
+  level:
+    root: INFO
+    org.example.moono_backend: DEBUG
+    org.example.moono_backend.kafka.integration: INFO  # 테스트 클래스 로그
+    org.springframework.kafka: INFO
+    org.hibernate.SQL: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"

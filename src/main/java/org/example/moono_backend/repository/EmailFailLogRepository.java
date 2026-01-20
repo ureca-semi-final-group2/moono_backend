@@ -1,6 +1,7 @@
 package org.example.moono_backend.repository;
 
 import org.example.moono_backend.domain.EmailFailLog;
+import org.example.moono_backend.domain.ParseStatus;
 import org.example.moono_backend.domain.SmsSendStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
@@ -21,4 +22,6 @@ public interface EmailFailLogRepository extends JpaRepository<EmailFailLog, Long
      * @return List<EmailFailLog>
      */
     List<EmailFailLog> findBySmsStatus(SmsSendStatus smsSendStatus);
+
+    List<EmailFailLog> findByParseStatusAndSmsStatus(ParseStatus parseStatus, SmsSendStatus smsSendStatus);
 }
