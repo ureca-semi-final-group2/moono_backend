@@ -26,6 +26,7 @@ public class SendingItemProcessor implements ItemProcessor<Billing, BillingProdu
     private final PreloadHolder preloadHolder;
     private final MemberPreloadListener memberPreloadListener;
 
+    // itemProcessor 에서 jobParameter 주입 받기
     @Value("#{jobParameters['isForced'] ?: 'false'}")
     private String isForcedStr;
 

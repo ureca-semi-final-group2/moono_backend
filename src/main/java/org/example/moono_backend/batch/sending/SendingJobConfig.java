@@ -32,6 +32,7 @@ public class SendingJobConfig {
     private final PlatformTransactionManager transactionManager;
     private final EntityManagerFactory entityManagerFactory;
     private final KafkaTemplate<String, BillingProducerMessageDto> kafkaTemplate;
+    private final MemberPreloadListener sendingMemberPreloadListener;
 
     private static final int CHUNK_SIZE = 1000;
 
