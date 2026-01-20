@@ -54,9 +54,15 @@ import org.springframework.batch.item.support.CompositeItemWriter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.dao.CannotAcquireLockException;
+import org.springframework.dao.QueryTimeoutException;
+import org.springframework.dao.TransientDataAccessException;
+import org.springframework.jdbc.CannotGetJdbcConnectionException;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.core.namedparam.SqlParameterSource;
+import org.springframework.retry.backoff.BackOffPolicy;
+import org.springframework.retry.backoff.ExponentialBackOffPolicy;
 import org.springframework.transaction.PlatformTransactionManager;
 
 import javax.sql.DataSource;
@@ -98,6 +104,14 @@ public class BillingBatch {
                 .reader(billingSourceReader)
                 .processor(billingProcessor)
                 .writer(billingCompositeWriter) // 복합 Writer
+                .faultTolerant()
+                // retry 대상 예외
+                .retry(TransientDataAccessException.class) // 일시적 DB 접근 문제
+                .retry(CannotGetJdbcConnectionException.class) // DB 커넥션 획득 실패
+                .retry(QueryTimeoutException.class) // 쿼리 제한 시간 초과(기본값:
+                .retry(CannotAcquireLockException.class) // 락 획득 실패
+                .retryLimit(3) // 재시도 횟수
+                .backOffPolicy(exponentialBackOff()) // 재시도시 대기 시간(0.5s -> 1s -> 2s)
                 .listener((StepExecutionListener) lastIdStepListener)
                 .listener((ItemWriteListener<? super BillingWriteItem>) lastIdStepListener)
                 .listener((StepExecutionListener) chunkTimingListener)
@@ -115,6 +129,15 @@ public class BillingBatch {
                 .listener((ItemReadListener<? super BillingSourceRow>) additionalServicePreloadListener)
                 .listener((ChunkListener) additionalServicePreloadListener)
                 .build();
+    }
+
+    @Bean(name = "billingBatchExponentialBackOff")
+    public BackOffPolicy exponentialBackOff() {
+        ExponentialBackOffPolicy p = new ExponentialBackOffPolicy();
+        p.setInitialInterval(500);  // 0.5s
+        p.setMultiplier(2.0);       // 0.5s -> 1s -> 2s ...
+        p.setMaxInterval(5000);     // 최대 5s
+        return p;
     }
 
     @Bean
