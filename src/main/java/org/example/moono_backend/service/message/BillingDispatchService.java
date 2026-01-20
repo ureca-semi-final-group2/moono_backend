@@ -38,7 +38,7 @@ public class BillingDispatchService {
     @Transactional
     public void process(BillingProducerMessageDto messageDto) throws EmailSendException {
         Long billingId = messageDto.getHeader().getBillingId();
-        log.info("Processing billingId: {}", billingId);
+        log.info("[Dispatch] 청구서 발송 처리 시작. billingId: {}", billingId);
 
         try {
             // 1. 멱등성 확인 : 이미 completed이면 처리하지 않음 -> 중복 발송 방지
@@ -54,7 +54,7 @@ public class BillingDispatchService {
 
             // 4. 금칙 시간 확인 (강제 발송이 아닌 경우)
             if (!isForced && checkQuietHours(messageDto, billing)) {
-                log.info("금칙 시간 확인 중.. billingId: {}", billingId);
+                log.info("[Dispatch] 금칙 시간으로 인해 발송 보류. billingId: {}", billingId);
                 return;
             }
 
@@ -69,14 +69,14 @@ public class BillingDispatchService {
 
             // 8. 발송 완료 상태 업데이트
             updateBillingStatus(billing, SendStatus.COMPLETED);
-            log.info("Billing email sent successfully. billingId: {}", billingId);
+            log.info("[Dispatch] 청구서 발송 처리 완료. billingId: {}", billingId);
 
         } catch (EmailSendException e) {
             // 이메일 발송 실패는 그대로 전파하여 Consumer가 재시도하도록 함
-            log.error("Email send failed for billingId: {}", billingId, e);
+            log.error("[Dispatch] 이메일 발송 실패. billingId: {}", billingId, e);
             throw e;
         } catch (Exception e) {
-            log.error("Unexpected error processing billingId: {}", billingId, e);
+            log.error("[Dispatch] 청구서 발송 처리 중 예상치 못한 오류. billingId: {}", billingId, e);
             throw EmailSendException.sendFailed(billingId != null ? billingId.toString() : null, e);
         }
     }
@@ -93,14 +93,14 @@ public class BillingDispatchService {
         Optional<Billing> billingOpt = billingRepository.findById(billingId);
 
         if (billingOpt.isEmpty()) {
-            log.warn("Billing not found for billingId: {}", billingId);
+            log.warn("[Dispatch] 청구서를 찾을 수 없음. billingId: {}", billingId);
             return false;
         }
         Billing billing = billingOpt.get();
         boolean isCompleted = billing.getSendStatus() == SendStatus.COMPLETED;
 
         if (isCompleted) {
-            log.info("Billing already processed for billingId: {}, status: {}", billingId, billing.getSendStatus());
+            log.info("[Dispatch] 이미 처리된 청구서. billingId: {}, status: {}", billingId, billing.getSendStatus());
         }
         return isCompleted;
     }
@@ -131,7 +131,7 @@ public class BillingDispatchService {
             String dndEnd = messageDto.getReceiver().getDndEnd();
 
             if (dndStart == null || dndEnd == null || dndStart.isEmpty() || dndEnd.isEmpty()) {
-                log.debug("DND time not set for billingId: {}", billing.getId());
+                log.debug("[Dispatch] 금칙 시간 미설정. billingId: {}", billing.getId());
                 return false;
             }
             LocalTime startDndTime = LocalTime.parse(dndStart);
@@ -141,15 +141,15 @@ public class BillingDispatchService {
             boolean inQuietHours = quietHourService.isDndTime(startDndTime, endDndTime, now);
             if (inQuietHours) {
                 updateBillingStatus(billing, SendStatus.IN_QUIET_HOUR);
-                log.info("Updated billing status to IN_QUIET_HOUR. billingId: {}, " +
-                        "quietHours: {} - {}",
+                log.info("[Dispatch] 청구서 상태를 IN_QUIET_HOUR로 업데이트. billingId: {}, " +
+                        "금칙 시간: {} - {}",
                         billing.getId(), startDndTime, endDndTime);
                 return true;
             }
             return false;
 
         } catch (Exception e) {
-            log.error("Failed to check DND time for billingId: {}", billing.getId(), e);
+            log.error("[Dispatch] 금칙 시간 확인 실패. billingId: {}", billing.getId(), e);
             return false;
         }
     }
@@ -164,13 +164,13 @@ public class BillingDispatchService {
             java.lang.reflect.Method setter = Billing.class.getMethod("setSendStatus", SendStatus.class);
             setter.invoke(billing, sendStatus);
             billingRepository.save(billing);
-            log.debug("Billing status updated. billingId: {}, status: {}", billing.getId(), sendStatus);
+            log.debug("[Dispatch] 청구서 상태 업데이트 완료. billingId: {}, status: {}", billing.getId(), sendStatus);
         } catch (NoSuchMethodException e) {
-            log.error("Billing entity does not have setSendStatus method. billingId: {}",
+            log.error("[Dispatch] Billing 엔티티에 setSendStatus 메서드가 없음. billingId: {}",
                     billing.getId(), e);
             throw new RuntimeException("Billing entity needs setter for sendStatus", e);
         } catch (Exception e) {
-            log.error("Failed to update billing status using reflection. billingId: {}",
+            log.error("[Dispatch] Reflection을 사용한 청구서 상태 업데이트 실패. billingId: {}",
                     billing.getId(), e);
             throw new RuntimeException("Failed to update billing status", e);
         }
@@ -181,16 +181,16 @@ public class BillingDispatchService {
      */
     private RawDetailsDto parseRawDetails(String rawDetails, Long billingId) {
         if (rawDetails == null || rawDetails.isEmpty()) {
-            log.warn("rawDetails is null or empty for billingId: {}", billingId);
+            log.warn("[Dispatch] rawDetails가 null이거나 비어있음. billingId: {}", billingId);
             return new RawDetailsDto(); // 빈 객체 반환
         }
 
         try {
             RawDetailsDto parsed = objectMapper.readValue(rawDetails, RawDetailsDto.class);
-            log.debug("Successfully parsed rawDetails for billingId: {}", billingId);
+            log.debug("[Dispatch] rawDetails JSON 파싱 성공. billingId: {}", billingId);
             return parsed;
         } catch (JsonProcessingException e) {
-            log.error("Failed to parse rawDetails JSON for billingId: {}", billingId, e);
+            log.error("[Dispatch] rawDetails JSON 파싱 실패. billingId: {}", billingId, e);
             throw new BillingDispatchException(
                     org.example.moono_backend.exception.ErrorCode.JSON_PARSING_FAILED,
                     billingId != null ? billingId.toString() : null,
@@ -222,10 +222,10 @@ public class BillingDispatchService {
                 header.getClass().getMethod("setIsForced", boolean.class)
                         .invoke(header, messageDto.getHeader().isForced());
             } catch (Exception ex) {
-                log.warn("Failed to set isForced field", ex);
+                log.warn("[Dispatch] isForced 필드 설정 실패", ex);
             }
         } catch (Exception e) {
-            log.warn("Failed to set isForced field", e);
+            log.warn("[Dispatch] isForced 필드 설정 실패", e);
         }
         dto.setHeader(header);
 
