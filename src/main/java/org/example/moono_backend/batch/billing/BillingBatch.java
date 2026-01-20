@@ -11,6 +11,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.moono_backend.batch.BatchMetricsListener;
@@ -26,6 +27,7 @@ import org.example.moono_backend.dto.OverageChargeInfo;
 import org.example.moono_backend.service.AdditionalServiceDiscountService;
 import org.example.moono_backend.service.ContractDiscountService;
 import org.example.moono_backend.service.EventDiscountService;
+import org.example.moono_backend.service.LoyaltyDiscountService;
 import org.example.moono_backend.service.PlanDiscountService;
 import org.example.moono_backend.support.IdGenerator;
 import org.example.moono_backend.utils.PlanCache;
@@ -78,6 +80,7 @@ public class BillingBatch {
     private final ContractDiscountService contractDiscountService;
     private final EventDiscountService eventDiscountService;
     private final AdditionalServiceDiscountService additionalServiceDiscountService;
+    private final LoyaltyDiscountService loyaltyDiscountService;
 
     private static final int CHUNK_SIZE = 1000;
 
@@ -286,6 +289,11 @@ public class BillingBatch {
 
             // 요금제 별 과금 조회
             List<OverageChargeInfo> overageChargeInfos = planDiscountService.calculatePlanDiscounts(row);
+
+            //장기 고객 할인 대상 조회
+            Optional<DiscountInfo> loyaltyDiscount=loyaltyDiscountService.calculateLoyaltyDiscount(registration,plan.getBaseFee());
+            loyaltyDiscount.ifPresent(discountInfoList::add);
+
             // 할인 금액 합산
             int totalDiscount = discountInfoList.stream()
                     .mapToInt(DiscountInfo::discountAmount)
