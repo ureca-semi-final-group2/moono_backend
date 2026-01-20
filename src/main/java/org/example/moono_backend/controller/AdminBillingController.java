@@ -2,12 +2,11 @@ package org.example.moono_backend.controller;
 
 import java.time.LocalDate;
 
+import org.springframework.batch.core.Job;
 import org.springframework.batch.core.JobParameters;
 import org.springframework.batch.core.JobParametersBuilder;
 import org.springframework.batch.core.launch.JobLauncher;
-import org.springframework.boot.autoconfigure.batch.BatchProperties.Job;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import lombok.RequiredArgsConstructor;

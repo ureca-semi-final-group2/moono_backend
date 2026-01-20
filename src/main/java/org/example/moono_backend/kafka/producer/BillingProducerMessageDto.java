@@ -14,7 +14,7 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class BillingDispatchMessageDto {
+public class BillingProducerMessageDto {
     private Header header;
     private Receiver receiver;
     private BillingSummary billingSummary;
@@ -62,9 +62,9 @@ public class BillingDispatchMessageDto {
         private long usageFee; // 사용 요금 -- 수정
     }
 
-    public static BillingDispatchMessageDto from(Billing billing, MemberCredential member, UserDndPolicy dnd,
+    public static BillingProducerMessageDto from(Billing billing, MemberCredential member, UserDndPolicy dnd,
             boolean isForced) {
-        return BillingDispatchMessageDto.builder()
+        return BillingProducerMessageDto.builder()
                 .header(Header.builder()
                         .publicInfoId(billing.getPublicInfoId()) // 정합성 체크용
                         .billingId(billing.getId())
