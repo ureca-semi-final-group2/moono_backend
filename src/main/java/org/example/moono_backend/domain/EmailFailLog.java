@@ -3,9 +3,11 @@ package org.example.moono_backend.domain;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Entity
+@Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class EmailFailLog {
     @Id
@@ -29,5 +31,11 @@ public class EmailFailLog {
         this.smsStatus = SmsSendStatus.PENDING;
         this.payload = payload;
         this.parseStatus = parseStatus;
+    }
+
+    public void update(SmsSendStatus smsSendStatus) {
+        if (smsSendStatus != null) {
+            this.smsStatus = smsSendStatus;
+        }
     }
 }
