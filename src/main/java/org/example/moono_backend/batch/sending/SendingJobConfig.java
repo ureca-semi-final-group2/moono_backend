@@ -1,18 +1,9 @@
 package org.example.moono_backend.batch.sending;
 
-import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.util.HashMap;
-import java.util.Map;
-
 import org.example.moono_backend.batch.BatchMetrics;
 import org.example.moono_backend.batch.StepMetricsListener;
-import org.example.moono_backend.batch.sending.step.SendingItemProcessor;
-import org.example.moono_backend.batch.sending.step.SendingItemWriter;
 import org.example.moono_backend.domain.Billing;
-import org.example.moono_backend.domain.SendStatus;
 import org.example.moono_backend.kafka.producer.BillingProducerMessageDto;
-import org.example.moono_backend.repository.BillingRepository;
 import org.example.moono_backend.repository.MemberCredentialRepository;
 import org.example.moono_backend.repository.UserDndPolicyRepository;
 import org.springframework.batch.core.ChunkListener;
@@ -24,7 +15,6 @@ import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.core.job.builder.JobBuilder;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.builder.StepBuilder;
-import org.springframework.batch.item.database.JpaPagingItemReader;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -45,7 +35,6 @@ public class SendingJobConfig {
     private final EntityManagerFactory entityManagerFactory;
     private final KafkaTemplate<String, BillingProducerMessageDto> kafkaTemplate;
     private final MemberPreloadListener sendingMemberPreloadListener;
-    private final BillingRepository billingRepository; // 상태값 업데이트(cREATED or IN_QUIET_HOUR ->SEND_PENDING)
 
     private static final int CHUNK_SIZE = 1000;
 
@@ -74,14 +63,13 @@ public class SendingJobConfig {
     @Bean
     public Step sendingStep(BatchMetrics batchMetrics,
             StepMetricsListener stepMetricsListener,
-            JpaPagingItemReader<Billing> sendingItemReader,
             SendingItemProcessor sendingItemProcessor, // 수정: Bean으로 주입받음
             SendingItemWriter sendingItemWriter, // 수정: Bean으로 주입받음
             MemberPreloadListener sendingMemberPreloadListener // MemberPreloadListener 주입
     ) {
         return new StepBuilder("sendingStep", jobRepository)
                 .<Billing, BillingProducerMessageDto>chunk(CHUNK_SIZE, transactionManager)
-                .reader(sendingItemReader)
+                .reader(new SendingItemReader(entityManagerFactory))
                 .processor(sendingItemProcessor)
                 .writer(sendingItemWriter)
                 .listener((ItemReadListener<? super Billing>) sendingMemberPreloadListener)
@@ -93,54 +81,19 @@ public class SendingJobConfig {
 
     @Bean
     @StepScope
-    public JpaPagingItemReader<Billing> sendingItemReader(
-            @Value("#{jobParameters['targetStatus']}") String sendstatus, // 전송 상태 CREATED or SEND_PENDING
-            @Value("#{jobParameters['targetDate']}") String dateStr) { // 2026 년 N월 1일
-
-        JpaPagingItemReader<Billing> reader = new JpaPagingItemReader<>();
-        reader.setEntityManagerFactory(entityManagerFactory);
-
-        // 발송 배치가 넣어준 날짜와 status 로 1차 필터링
-        // 즉 해당 월의 1일 건을 필터링 할 수 있다.
-
-        // = 대신 BETWEEN 사용 (시/분/초 차이 무시)
-        reader.setQueryString(
-                "SELECT b FROM Billing b " +
-                        "WHERE b.sendStatus = :status " +
-                        "AND b.billingDate BETWEEN :startDate AND :endDate " +
-                        "ORDER BY b.id ASC");
-
-        Map<String, Object> params = new HashMap<>();
-        params.put("status", SendStatus.valueOf(sendstatus));
-
-        // 시작 시간: 2026-01-01 00:00:00
-        LocalDateTime startDate = LocalDateTime.parse(dateStr).with(LocalTime.MIN);
-        // 종료 시간: 2026-01-01 23:59:59.999
-        LocalDateTime endDate = LocalDateTime.parse(dateStr).with(LocalTime.MAX);
-
-        params.put("startDate", startDate);
-        params.put("endDate", endDate);
-        reader.setParameterValues(params);
-        reader.setPageSize(CHUNK_SIZE);
-        reader.setName("sendingItemReader");
-        return reader;
-    }
-
-    @Bean
-    @StepScope
     public SendingItemProcessor sendingItemProcessor(
             BatchMetrics batchMetrics,
             PreloadHolder preloadHolder,
             MemberPreloadListener sendingMemberPreloadListener,
-            @Value("#{jobParameters['targetDay']}") Long targetDay, // 발송 지정일 파라미터 추가
             @Value("#{jobParameters['isForced'] ?: 'false'}") String isForcedStr) {
 
         return new SendingItemProcessor(
                 batchMetrics,
+                this.memberCredentialRepository,
+                this.dndRepository,
                 preloadHolder,
                 sendingMemberPreloadListener,
-                isForcedStr,
-                targetDay);
+                isForcedStr);
     }
 
     // Writer도 Bean으로 등록

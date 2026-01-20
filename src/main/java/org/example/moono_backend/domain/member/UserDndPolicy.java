@@ -26,8 +26,6 @@ public class UserDndPolicy {
 
     private LocalTime endDndTime;
 
-    @Column(nullable = false)
-    private int sendDay; // 15 or 21 (string 에서 int 형으로 변경)
-    // 정산 배치에서 해당 월에 sendDay 를 조합하여
-    // BillingDate(LocalDateTime) 생성 후 DB 적재
+    @Column(length = 5)
+    private String sendDay; // 15 or 21
 }

@@ -33,8 +33,7 @@ public class Billing {
     @Enumerated(EnumType.STRING)
     private SendStatus sendStatus;
 
-    private LocalDateTime billingDate; // UserDndPolicy의 sendDay(15 or 21)를 참조하여 이번 달의 정확한 날짜를 계산
-                                       // ex) 2025-01 + 15 = "2025-01-15"
+    private LocalDateTime billingDate;
 
     private LocalDateTime paidDate;
 
