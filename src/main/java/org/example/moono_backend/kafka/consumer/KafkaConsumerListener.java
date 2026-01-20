@@ -30,8 +30,6 @@ import org.springframework.stereotype.Component;
  * 왜 BillingProducerMessageDto로 직접 받는가?
  * - Producer가 이미 BillingProducerMessageDto 객체를 보내고 있음
  * - Spring Kafka의 JsonDeserializer가 자동으로 역직렬화 처리
- * - 수동 역직렬화 코드가 필요 없어 코드가 간결해짐
- * - 타입 안정성 향상 (컴파일 타임에 타입 체크 가능)
  */
 @Slf4j
 @Component
