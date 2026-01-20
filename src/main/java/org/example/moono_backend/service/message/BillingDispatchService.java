@@ -233,8 +233,7 @@ public class BillingDispatchService {
         receiver.setName(messageDto.getReceiver().getName());
         receiver.setEmail(messageDto.getReceiver().getEmail());
         receiver.setPhone(messageDto.getReceiver().getPhone());
-        receiver.setDndStart(messageDto.getReceiver().getDndStart());
-        receiver.setDndEnd(messageDto.getReceiver().getDndEnd());
+        // 금칙시간은 BillingProducerMessageDto에서 checkQuietHours()에서만 사용됨
         dto.setReceiver(receiver);
 
         // BillingSummary 변환
