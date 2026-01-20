@@ -9,7 +9,7 @@ import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.example.moono_backend.exception.EmailSendException;
 import org.example.moono_backend.exception.TemplateRenderException;
-import org.example.moono_backend.kafka.consumer.BillingDispatchDto;
+import org.example.moono_backend.kafka.consumer.BillingConsumerMessageDto;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -55,7 +55,7 @@ public class EmailService {
      * @return 렌더링된 이메일 제목
      * @throws TemplateRenderException 템플릿 렌더링 실패 시
      */
-    public String renderEmailSubject(BillingDispatchDto dto) throws TemplateRenderException {
+    public String renderEmailSubject(BillingConsumerMessageDto dto) throws TemplateRenderException {
         String billingId = dto.getHeader().getBillingId() != null
                 ? dto.getHeader().getBillingId().toString()
                 : null;
@@ -83,7 +83,7 @@ public class EmailService {
      * @return 렌더링된 이메일 본문
      * @throws TemplateRenderException 템플릿 렌더링 실패 시
      */
-    public String renderEmailBody(BillingDispatchDto dto) throws TemplateRenderException {
+    public String renderEmailBody(BillingConsumerMessageDto dto) throws TemplateRenderException {
         String billingId = dto.getHeader().getBillingId() != null
                 ? dto.getHeader().getBillingId().toString()
                 : null;
@@ -111,7 +111,7 @@ public class EmailService {
      * @return 렌더링된 이메일 본문
      * @throws TemplateRenderException 템플릿 렌더링 실패 시
      */
-    public String renderEmail(BillingDispatchDto dto) throws TemplateRenderException {
+    public String renderEmail(BillingConsumerMessageDto dto) throws TemplateRenderException {
         return renderEmailBody(dto);
     }
 
@@ -125,7 +125,7 @@ public class EmailService {
      * @param dto BillingDispatchDto 객체
      * @throws EmailSendException 이메일 발송 실패 시
      */
-    public void sendBillingEmail(BillingDispatchDto dto) throws EmailSendException {
+    public void sendBillingEmail(BillingConsumerMessageDto dto) throws EmailSendException {
         String billingId = dto.getHeader().getBillingId() != null
                 ? dto.getHeader().getBillingId().toString()
                 : null;

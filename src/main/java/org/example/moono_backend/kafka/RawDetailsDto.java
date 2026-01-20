@@ -1,4 +1,4 @@
-package org.example.moono_backend.kafka.consumer;
+package org.example.moono_backend.kafka;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
@@ -16,13 +16,13 @@ import java.util.List;
  */
 @Data
 public class RawDetailsDto {
-    private List<BillingDispatchDto.OverageItem> overages; // 과금 내역
-    private List<BillingDispatchDto.DiscountItem> discounts; // 할인 내역
+    private List<OverageItem> overages; // 과금 내역
+    private List<DiscountItem> discounts; // 할인 내역
 
     @Data
     public static class OverageItem {
         @JsonProperty("type")
-        private String type; // // "data", "voice", "sms"
+        private String type; // "data", "voice", "sms"
 
         @JsonProperty("amount")
         private long amount;
@@ -31,7 +31,7 @@ public class RawDetailsDto {
     @Data
     public static class DiscountItem {
         @JsonProperty("type")
-        private String type; // "event" 등등
+        private String type; // "select_contract", "event" 등등
         @JsonProperty("amount")
         private long amount;
     }

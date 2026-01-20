@@ -7,7 +7,11 @@ import org.example.moono_backend.batch.BatchMetrics;
 import org.example.moono_backend.domain.Billing;
 import org.example.moono_backend.domain.member.MemberCredential;
 import org.example.moono_backend.domain.member.UserDndPolicy;
+<<<<<<< HEAD
 import org.example.moono_backend.kafka.producer.BillingDispatchMessageDto;
+=======
+import org.example.moono_backend.kafka.producer.BillingProducerMessageDto;
+>>>>>>> 6fb031291537858862afa3e0247fb2d52c474eda
 import org.example.moono_backend.repository.MemberCredentialRepository;
 import org.example.moono_backend.repository.UserDndPolicyRepository;
 import org.springframework.batch.item.ItemProcessor;
@@ -18,7 +22,7 @@ import lombok.RequiredArgsConstructor;
 
 @Component
 @RequiredArgsConstructor
-public class SendingItemProcessor implements ItemProcessor<Billing, BillingDispatchMessageDto> {
+public class SendingItemProcessor implements ItemProcessor<Billing, BillingProducerMessageDto> {
 
     private final BatchMetrics metrics;
     private final MemberCredentialRepository memberRepository;
@@ -30,7 +34,7 @@ public class SendingItemProcessor implements ItemProcessor<Billing, BillingDispa
     private String isForcedStr;
 
     @Override
-    public BillingDispatchMessageDto process(Billing billing) throws Exception {
+    public BillingProducerMessageDto process(Billing billing) throws Exception {
         long startTime = System.nanoTime();
 
         boolean isForced = Boolean.parseBoolean(isForcedStr);
@@ -40,6 +44,7 @@ public class SendingItemProcessor implements ItemProcessor<Billing, BillingDispa
                 memberPreloadListener.preloadData();
             }
 
+<<<<<<< HEAD
             // 직접 DB 조회하지 않고 PreloadHolder 에서 미리 로드된 데이터 사용
             MemberCredential member = preloadHolder.memberMap.get(billing.getPublicInfoId());
             UserDndPolicy dnd = preloadHolder.dndMap.get(billing.getPublicInfoId());
@@ -49,6 +54,28 @@ public class SendingItemProcessor implements ItemProcessor<Billing, BillingDispa
 
             return BillingDispatchMessageDto.from(billing, member, dnd, isForced);
 
+=======
+            // 계층형 DTO 구조에 맞게 매핑
+            return BillingProducerMessageDto.builder()
+                    .header(BillingProducerMessageDto.Header.builder()
+                            .billingId(billing.getId())
+                            .billingMonth(billing.getBillingDate().toString())
+                            .isForced(false)
+                            .build())
+                    .receiver(BillingProducerMessageDto.Receiver.builder()
+                            .name(member.getName())
+                            .email(member.getEmail())
+                            .phone(member.getPhoneNumber())
+                            .dndStart(dnd.getStartDndTime().toString())
+                            .dndEnd(dnd.getEndDndTime().toString())
+                            .build())
+                    .billingSummary(BillingProducerMessageDto.BillingSummary.builder()
+                            .totalAmount(billing.getBillingFee())
+                            .dueDate(billing.getBillingDate().plusDays(15).toString())
+                            .build())
+                    .rawDetails(billing.getBillingDetails())
+                    .build();
+>>>>>>> 6fb031291537858862afa3e0247fb2d52c474eda
         } finally {
             long elapsedNanos = System.nanoTime() - startTime;
             metrics.mapNanos.addAndGet(elapsedNanos);

@@ -4,7 +4,7 @@ import lombok.Data;
 import java.util.List;
 
 @Data
-public class BillingDispatchDto {
+public class BillingConsumerMessageDto {
     private Header header;
     private Receiver receiver;
     private BillingSummary billingSummary;
@@ -38,20 +38,29 @@ public class BillingDispatchDto {
 
     @Data
     public static class Details {
-        private List<OverageItem> overageItems;
-        private List<DiscountItem> discountItems;
+        // 이메일 템플릿에서 사용하는 필드
+        private List<AdditionalServiceItem> overageItem;
+        private List<DiscountItem> discountItem;
     }
 
+    /**
+     * 이메일 템플릿용 부가 서비스 항목
+     * 템플릿에서 {{this.name}}과 {{this.price}}를 사용
+     */
     @Data
-    public static class OverageItem {
-        private String type;
-        private long amount;
+    public static class AdditionalServiceItem {
+        private String name; // 표시용 이름 (예: "데이터 초과", "통화량 초과")
+        private long price; // 가격
     }
 
+    /**
+     * 이메일 템플릿용 할인 항목
+     * 템플릿에서 {{this.name}}과 {{this.amount}}를 사용
+     */
     @Data
     public static class DiscountItem {
-        private String type;
-        private long amount;
+        private String name; // 표시용 이름 (예: "선택약정 할인", "이벤트 할인")
+        private long amount; // 할인 금액
     }
 
 }
