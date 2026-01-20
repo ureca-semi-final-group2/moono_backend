@@ -10,7 +10,7 @@ import org.example.moono_backend.exception.BillingDispatchException;
 import org.example.moono_backend.exception.EmailSendException;
 import org.example.moono_backend.kafka.consumer.BillingDispatchDto;
 import org.example.moono_backend.kafka.consumer.RawDetailsDto;
-import org.example.moono_backend.kafka.producer.BillingDispatchMessageDto;
+import org.example.moono_backend.kafka.consumer.BillingDispatchDto;
 import org.example.moono_backend.repository.BillingRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,7 +36,7 @@ public class BillingDispatchService {
      * EmailFailLog 저장은 DLT Consumer에서 처리
      */
     @Transactional
-    public void process(BillingDispatchMessageDto messageDto) throws EmailSendException {
+    public void process(BillingDispatchDto messageDto) throws EmailSendException {
         Long billingId = messageDto.getHeader().getBillingId();
         log.info("Processing billingId: {}", billingId);
 

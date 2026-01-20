@@ -11,6 +11,7 @@ import org.example.moono_backend.kafka.producer.BillingDispatchMessageDto;
 import org.example.moono_backend.repository.MemberCredentialRepository;
 import org.example.moono_backend.repository.UserDndPolicyRepository;
 import org.springframework.batch.item.ItemProcessor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import lombok.RequiredArgsConstructor;
@@ -25,9 +26,15 @@ public class SendingItemProcessor implements ItemProcessor<Billing, BillingDispa
     private final PreloadHolder preloadHolder;
     private final MemberPreloadListener memberPreloadListener;
 
+    @Value("#{jobParameters['isForced'] ?: 'false'}")
+    private String isForcedStr;
+
     @Override
     public BillingDispatchMessageDto process(Billing billing) throws Exception {
         long startTime = System.nanoTime();
+
+        boolean isForced = Boolean.parseBoolean(isForcedStr);
+
         try {
             if (preloadHolder.memberMap.isEmpty()) {
                 memberPreloadListener.preloadData();
@@ -40,7 +47,7 @@ public class SendingItemProcessor implements ItemProcessor<Billing, BillingDispa
             if (member == null || dnd == null)
                 return null;
 
-            return BillingDispatchMessageDto.from(billing, member, dnd);
+            return BillingDispatchMessageDto.from(billing, member, dnd, isForced);
 
         } finally {
             long elapsedNanos = System.nanoTime() - startTime;

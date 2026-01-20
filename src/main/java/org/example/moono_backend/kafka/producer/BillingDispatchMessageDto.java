@@ -46,7 +46,8 @@ public class BillingDispatchMessageDto {
         private String phone;
 
         // Consumer가 실제 발송 시점에 실시간으로 판단할 금칙 시간 정책
-        private String dndStart; // 예: "21:00:00"
+        private boolean isDndActive; // true / false
+        private String dndStart; // 예: "21:00:00" // false 인 경우 00:00:00
         private String dndEnd; // 예: "08:00:00"
     }
 
@@ -57,22 +58,25 @@ public class BillingDispatchMessageDto {
     public static class BillingSummary {
         private long totalAmount; // 총 청구 금액
         private String dueDate; // 납기일
-        private long baseFee; // 기본 요금
-        private long usageFee; // 사용 요금
+        private long baseFee; // 기본 요금 -- 수정 예정
+        private long usageFee; // 사용 요금 -- 수정
     }
 
-    public static BillingDispatchMessageDto from(Billing billing, MemberCredential member, UserDndPolicy dnd) {
+    public static BillingDispatchMessageDto from(Billing billing, MemberCredential member, UserDndPolicy dnd,
+            boolean isForced) {
         return BillingDispatchMessageDto.builder()
                 .header(Header.builder()
+                        .publicInfoId(billing.getPublicInfoId()) // 정합성 체크용
                         .billingId(billing.getId())
                         .billingMonth(billing.getBillingDate().toString())
-                        .isForced(false)
+                        .isForced(isForced) // DND 무시 여부 추가
                         .build())
                 .receiver(Receiver.builder()
                         .name(member.getName())
                         .email(member.getEmail())
                         .phone(member.getPhoneNumber())
                         .dndStart(dnd.getStartDndTime().toString())
+                        .isDndActive(dnd.isDndActive()) // 금칙 시간 활성화 여부 추가
                         .dndEnd(dnd.getEndDndTime().toString())
                         .build())
                 .billingSummary(BillingSummary.builder()
