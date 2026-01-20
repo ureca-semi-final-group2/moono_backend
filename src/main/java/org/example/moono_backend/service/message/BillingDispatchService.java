@@ -75,7 +75,7 @@ public class BillingDispatchService {
      * @return 처리 결과 (이메일 발송 여부 및 DTO 포함)
      */
     @Transactional
-    private ProcessResult processInternal(BillingProducerMessageDto messageDto) {
+    protected ProcessResult processInternal(BillingProducerMessageDto messageDto) {
         Long billingId = messageDto.getHeader().getBillingId();
 
         // 1. 멱등성 확인 : 이미 completed이면 처리하지 않음 -> 중복 발송 방지
@@ -119,7 +119,7 @@ public class BillingDispatchService {
      * @throws EmailSendException 이메일 발송 실패 시
      */
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    private void sendEmailAfterTransaction(BillingConsumerMessageDto dispatchDto, Long billingId) 
+    protected void sendEmailAfterTransaction(BillingConsumerMessageDto dispatchDto, Long billingId)
             throws EmailSendException {
         log.info("[Dispatch] 이메일 발송 시작 (트랜잭션 외부). billingId: {}", billingId);
         emailService.sendBillingEmail(dispatchDto);

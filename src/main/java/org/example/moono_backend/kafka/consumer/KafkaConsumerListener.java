@@ -38,9 +38,9 @@ import org.springframework.stereotype.Component;
 public class KafkaConsumerListener {
 
     // 컨벤션: queuing.{도메인}.{기능}.{액션} 형식
-    private static final String TOPIC_NAME = "queuing.billing.email.send";
+    private static final String TOPIC_NAME = "sending-topic";
     // 컨벤션: cg-{도메인}-{기능}-{액션} 형식 (cg = consumer group)
-    private static final String GROUP_ID = "cg-billing-email-send";
+    private static final String GROUP_ID = "group_id";
 
     private final BillingDispatchService billingDispatchService;
 
