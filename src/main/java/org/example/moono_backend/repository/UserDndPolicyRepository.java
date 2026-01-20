@@ -35,4 +35,6 @@ public interface UserDndPolicyRepository extends JpaRepository<UserDndPolicy, Lo
      */
     Optional<UserDndPolicy> findByPublicInfoIdAndSendDayAndIsDndActive(
             String publicInfoId, String sendDay, boolean isDndActive);
+
+    List<UserDndPolicy> findAllByPublicInfoIdIn(List<String> publicInfoIds);
 }

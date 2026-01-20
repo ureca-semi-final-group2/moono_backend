@@ -49,8 +49,8 @@ public class BillingConsumerMessageDto {
      */
     @Data
     public static class AdditionalServiceItem {
-        private String name;  // 표시용 이름 (예: "데이터 초과", "통화량 초과")
-        private long price;   // 가격
+        private String name; // 표시용 이름 (예: "데이터 초과", "통화량 초과")
+        private long price; // 가격
     }
 
     /**
@@ -59,8 +59,8 @@ public class BillingConsumerMessageDto {
      */
     @Data
     public static class DiscountItem {
-        private String name;   // 표시용 이름 (예: "선택약정 할인", "이벤트 할인")
-        private long amount;   // 할인 금액
+        private String name; // 표시용 이름 (예: "선택약정 할인", "이벤트 할인")
+        private long amount; // 할인 금액
     }
 
 }

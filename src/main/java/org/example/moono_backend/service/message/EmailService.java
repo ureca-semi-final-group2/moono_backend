@@ -28,7 +28,7 @@ import java.io.IOException;
 @Service
 @Slf4j
 public class EmailService {
-    
+
     private Handlebars handlebars;
     @SuppressWarnings("unused")
     private final ObjectMapper objectMapper; // 향후 JSON 처리에 사용 예정
@@ -62,13 +62,13 @@ public class EmailService {
 
         try {
             log.debug("Rendering email subject for billingId: {}", billingId);
-            
+
             Template template = handlebars.compile("billing-notification-subject");
             String subject = template.apply(dto);
-            
+
             log.debug("Email subject rendered successfully for billingId: {}", billingId);
             return subject.trim();
-            
+
         } catch (IOException e) {
             log.error("Failed to render email subject for billingId: {}", billingId, e);
             // 공통 예외 처리 구조 사용
@@ -90,13 +90,13 @@ public class EmailService {
 
         try {
             log.debug("Rendering email body for billingId: {}", billingId);
-            
+
             Template template = handlebars.compile("billing-notification-body");
             String body = template.apply(dto);
-            
+
             log.debug("Email body rendered successfully for billingId: {}", billingId);
             return body;
-            
+
         } catch (IOException e) {
             log.error("Failed to render email body for billingId: {}", billingId, e);
             // 공통 예외 처리 구조 사용
