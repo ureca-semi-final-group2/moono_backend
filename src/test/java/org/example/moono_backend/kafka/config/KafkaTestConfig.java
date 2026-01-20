@@ -1,7 +1,8 @@
 package org.example.moono_backend.kafka.config;
 
-import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.admin.NewTopic;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.kafka.config.TopicBuilder;
@@ -19,7 +20,6 @@ import org.springframework.kafka.test.context.EmbeddedKafka;
  * - 테스트용 토픽이 자동으로 생성됨
  * - 실제 Kafka 없이도 테스트 가능
  */
-@Slf4j
 @EmbeddedKafka(
         topics = {"queuing.billing.email.send", "queuing.billing.email.send.dlt"},
         partitions = 3,
@@ -30,6 +30,8 @@ import org.springframework.kafka.test.context.EmbeddedKafka;
 )
 @TestConfiguration
 public class KafkaTestConfig {
+
+    private static final Logger log = LoggerFactory.getLogger(KafkaTestConfig.class);
 
     private static final String BILLING_EMAIL_SEND_TOPIC = "queuing.billing.email.send";
     private static final String BILLING_EMAIL_SEND_DLT_TOPIC = "queuing.billing.email.send.dlt";
