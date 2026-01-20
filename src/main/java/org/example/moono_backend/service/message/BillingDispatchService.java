@@ -48,7 +48,7 @@ public class BillingDispatchService {
         try {
             // 트랜잭션 내부: DB 조회 및 상태 업데이트
             ProcessResult result = processInternal(messageDto);
-            
+
             // 트랜잭션 외부: 이메일 발송 (외부 API 호출)
             if (result.shouldSendEmail()) {
                 sendEmailAfterTransaction(result.getDispatchDto(), billingId);
@@ -116,14 +116,14 @@ public class BillingDispatchService {
      * DB 업데이트가 커밋된 후에 이메일을 발송합니다.
      * 
      * @param dispatchDto 이메일 발송용 DTO
-     * @param billingId 청구서 ID
+     * @param billingId   청구서 ID
      * @throws EmailSendException 이메일 발송 실패 시
      */
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     protected void sendEmailAfterTransaction(BillingConsumerMessageDto dispatchDto, Long billingId)
             throws EmailSendException {
         log.info("[Dispatch] 이메일 발송 시작 (트랜잭션 외부). billingId: {}", billingId);
-        
+
         // Chaos Engineering: 1% 확률로 장애 주입
         int randomValue = ThreadLocalRandom.current().nextInt(100);
         if (randomValue == 0) {
@@ -132,7 +132,7 @@ public class BillingDispatchService {
                     billingId != null ? billingId.toString() : null,
                     new RuntimeException("Chaos Engineering: Intentional failure injection (1% probability)"));
         }
-        
+
         emailService.sendBillingEmail(dispatchDto);
         log.info("[Dispatch] 청구서 발송 처리 완료. billingId: {}", billingId);
     }
@@ -246,21 +246,42 @@ public class BillingDispatchService {
      * 
      * Billing 엔티티에 setter가 없으므로 reflection을 사용합니다.
      */
+
+    /**
+     * private void updateBillingStatus(Billing billing, SendStatus sendStatus) {
+     * try {
+     * java.lang.reflect.Method setter = Billing.class.getMethod("setSendStatus",
+     * SendStatus.class);
+     * setter.invoke(billing, sendStatus);
+     * billingRepository.save(billing);
+     * log.debug("Billing status updated. billingId: {}, status: {}",
+     * billing.getId(), sendStatus);
+     * } catch (NoSuchMethodException e) {
+     * log.error("Billing entity does not have setSendStatus method. billingId: {}",
+     * billing.getId(), e);
+     * throw new RuntimeException("Billing entity needs setter for sendStatus", e);
+     * } catch (Exception e) {
+     * log.error("Failed to update billing status using reflection. billingId: {}",
+     * billing.getId(), e);
+     * throw new RuntimeException("Failed to update billing status", e);
+     * }
+     * }
+     **/
+
+    // 리플랙션 제거하고 set 메서드 직접 호출
     private void updateBillingStatus(Billing billing, SendStatus sendStatus) {
         try {
-            java.lang.reflect.Method setter = Billing.class.getMethod("setSendStatus", SendStatus.class);
-            setter.invoke(billing, sendStatus);
+            if (sendStatus == SendStatus.COMPLETED) {
+                billing.completeSend();
+            } else if (sendStatus == SendStatus.IN_QUIET_HOUR) {
+                billing.markAsInQuietHour();
+            }
             billingRepository.save(billing);
-            log.debug("[Dispatch] 청구서 상태 업데이트 완료. billingId: {}, status: {}", billing.getId(), sendStatus);
-        } catch (NoSuchMethodException e) {
-            log.error("[Dispatch] Billing 엔티티에 setSendStatus 메서드가 없음. billingId: {}",
-                    billing.getId(), e);
-            throw new RuntimeException("Billing entity needs setter for sendStatus", e);
         } catch (Exception e) {
-            log.error("[Dispatch] Reflection을 사용한 청구서 상태 업데이트 실패. billingId: {}",
-                    billing.getId(), e);
-            throw new RuntimeException("Failed to update billing status", e);
+            log.error("상태 업데이트 실패: billingId={}", billing.getId(), e);
+            throw new RuntimeException("Billing status update failed", e);
         }
+
     }
 
     /**
