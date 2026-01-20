@@ -45,7 +45,7 @@ public class EmailService {
         // 템플릿 로더 설정: /templates/email -> .hbs 파일 로드
         TemplateLoader loader = new ClassPathTemplateLoader("/templates/email", ".hbs");
         this.handlebars = new Handlebars(loader);
-        log.info("Handlebars init complete");
+        log.info("[EmailService] Handlebars 초기화 완료");
     }
 
     /**
@@ -61,16 +61,16 @@ public class EmailService {
                 : null;
 
         try {
-            log.debug("Rendering email subject for billingId: {}", billingId);
+            log.debug("[EmailService] 이메일 제목 렌더링 시작. billingId: {}", billingId);
 
             Template template = handlebars.compile("billing-notification-subject");
             String subject = template.apply(dto);
 
-            log.debug("Email subject rendered successfully for billingId: {}", billingId);
+            log.debug("[EmailService] 이메일 제목 렌더링 완료. billingId: {}", billingId);
             return subject.trim();
 
         } catch (IOException e) {
-            log.error("Failed to render email subject for billingId: {}", billingId, e);
+            log.error("[EmailService] 이메일 제목 렌더링 실패. billingId: {}", billingId, e);
             // 공통 예외 처리 구조 사용
             throw TemplateRenderException.renderFailed(billingId, e);
         }
@@ -89,16 +89,16 @@ public class EmailService {
                 : null;
 
         try {
-            log.debug("Rendering email body for billingId: {}", billingId);
+            log.debug("[EmailService] 이메일 본문 렌더링 시작. billingId: {}", billingId);
 
             Template template = handlebars.compile("billing-notification-body");
             String body = template.apply(dto);
 
-            log.debug("Email body rendered successfully for billingId: {}", billingId);
+            log.debug("[EmailService] 이메일 본문 렌더링 완료. billingId: {}", billingId);
             return body;
 
         } catch (IOException e) {
-            log.error("Failed to render email body for billingId: {}", billingId, e);
+            log.error("[EmailService] 이메일 본문 렌더링 실패. billingId: {}", billingId, e);
             // 공통 예외 처리 구조 사용
             throw TemplateRenderException.renderFailed(billingId, e);
         }
@@ -131,7 +131,7 @@ public class EmailService {
                 : null;
 
         try {
-            log.info("Sending billing email to: {} (billingId: {})",
+            log.info("[EmailService] 이메일 발송 시작. 수신자: {}, billingId: {}",
                     dto.getReceiver().getEmail(), billingId);
 
             // 수신자 유효성 검사
@@ -147,9 +147,9 @@ public class EmailService {
 
             // TODO: 실제 이메일 발송 로직 구현
             // Mock 구현: 로깅만 수행
-            log.info("Email sent successfully (MOCK) - To: {}, Subject: {}, Body length: {} bytes",
-                    dto.getReceiver().getEmail(), subject, body.length());
-            log.debug("Email body:\n{}", body);
+            log.info("[EmailService] 이메일 발송 완료 (MOCK). 수신자: {}, 제목: {}, 본문 길이: {} bytes, billingId: {}",
+                    dto.getReceiver().getEmail(), subject, body.length(), billingId);
+            log.debug("[EmailService] 이메일 본문:\n{}", body);
 
         } catch (TemplateRenderException e) {
             // 템플릿 렌더링 실패는 EmailSendException으로 래핑
@@ -159,7 +159,7 @@ public class EmailService {
             // 이미 EmailSendException이면 그대로 전파
             throw e;
         } catch (Exception e) {
-            log.error("Failed to send email to: {} (billingId: {})",
+            log.error("[EmailService] 이메일 발송 실패. 수신자: {}, billingId: {}",
                     dto.getReceiver().getEmail(), billingId, e);
             // 공통 예외 처리 구조 사용
             throw EmailSendException.sendFailed(billingId, e);
