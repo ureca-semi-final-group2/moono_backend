@@ -1,9 +1,11 @@
-package org.example.moono_backend.batch.sending;
+package org.example.moono_backend.batch.sending.step;
 
 import java.util.List;
 import java.util.Optional;
 
 import org.example.moono_backend.batch.BatchMetrics;
+import org.example.moono_backend.batch.sending.MemberPreloadListener;
+import org.example.moono_backend.batch.sending.PreloadHolder;
 import org.example.moono_backend.domain.Billing;
 import org.example.moono_backend.domain.member.MemberCredential;
 import org.example.moono_backend.domain.member.UserDndPolicy;
@@ -22,17 +24,15 @@ import lombok.RequiredArgsConstructor;
 public class SendingItemProcessor implements ItemProcessor<Billing, BillingProducerMessageDto> {
 
     private final BatchMetrics metrics;
-    private final MemberCredentialRepository memberRepository;
-    private final UserDndPolicyRepository dndRepository;
     private final PreloadHolder preloadHolder;
     private final MemberPreloadListener memberPreloadListener;
 
     private final String isForcedStr; // 생성자로 받음
+    private final Long targetDay;
 
     @Override
     public BillingProducerMessageDto process(Billing billing) throws Exception {
         long startTime = System.nanoTime();
-
         boolean isForced = Boolean.parseBoolean(isForcedStr);
 
         try {
@@ -44,6 +44,12 @@ public class SendingItemProcessor implements ItemProcessor<Billing, BillingProdu
             MemberCredential member = preloadHolder.memberMap.get(billing.getPublicInfoId());
             UserDndPolicy dnd = preloadHolder.dndMap.get(billing.getPublicInfoId());
 
+            // 유저 설정 발송일과 오늘 실행일이 다르면 이번 배치에서는 제외(null 반환) - 즉 여기서 15일 21일 발송일에 따른 건져가는 필터링
+            // 실행
+            if (dnd.getSendDay() != targetDay.intValue()) {
+                return null;
+            }
+
             if (member == null || dnd == null)
                 return null;
 
@@ -54,25 +60,4 @@ public class SendingItemProcessor implements ItemProcessor<Billing, BillingProdu
             metrics.mapNanos.addAndGet(elapsedNanos);
         }
     }
-
-    // 기존의 BulkProcessor 코드는 삭제되었습니다.
-    // 왜냐하면 MemberPreloadListener 를 통해 미리 데이터를 로드하는 방식으로 변경되었기 때문입니다.
-
-    // 기존 방식 로직:
-    /*
-     * private void bulkLoadMembers(List<String> ids) {
-     * List<MemberCredential> members =
-     * memberRepository.findAllByPublicInfoIdIn(ids);
-     * for (MemberCredential member : members) {
-     * preloadHolder.memberMap.put(member.getPublicInfoId(), member);
-     * }
-     * }
-     * 코드 설명: bulkLoadMembers 메서드는 주어진 ID 목록에 대해 MemberCredential 엔티티를 한 번에 로드하여
-     * PreloadHolder 에 저장합니다.
-     */
-    // End of 기존 방식 로직
-    // ------------------------------------------------------------
-    // 새로운 방식은 MemberPreloadListener 클래스에 구현되어 있습니다.
-    // ------------------------------------------------------------
-
 }

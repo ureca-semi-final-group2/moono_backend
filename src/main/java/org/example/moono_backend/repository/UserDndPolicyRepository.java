@@ -21,20 +21,11 @@ public interface UserDndPolicyRepository extends JpaRepository<UserDndPolicy, Lo
      * @param sendDay
      * @return Optional<UserDndPolicy>
      */
-    Optional<UserDndPolicy> findByPublicInfoIdAndSendDay(String publicInfoId, String sendDay);
+    Optional<UserDndPolicy> findByPublicInfoIdAndSendDay(String publicInfoId, Integer sendDay);
 
-    /**
-     * publicInfoId, sendDay, isDndActive로 활성화된 정책만 조회
-     *
-     * 금칙 시간이 활성화된 정책만 조회하고 싶을때 사용함
-     * 
-     * @param publicInfoId
-     * @param sendDay
-     * @param isDndActive
-     * @return Optional<UserDndPolicy>
-     */
-    Optional<UserDndPolicy> findByPublicInfoIdAndSendDayAndIsDndActive(
-            String publicInfoId, String sendDay, boolean isDndActive);
+    // 수정 후 (String sendDay -> Integer sendDay)
+    Optional<UserDndPolicy> findByPublicInfoIdAndSendDayAndIsDndActive(String publicInfoId, Integer sendDay,
+            boolean isDndActive);
 
     List<UserDndPolicy> findAllByPublicInfoIdIn(List<String> publicInfoIds);
 }
