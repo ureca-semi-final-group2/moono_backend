@@ -19,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
 @Service
@@ -122,6 +123,16 @@ public class BillingDispatchService {
     protected void sendEmailAfterTransaction(BillingConsumerMessageDto dispatchDto, Long billingId)
             throws EmailSendException {
         log.info("[Dispatch] 이메일 발송 시작 (트랜잭션 외부). billingId: {}", billingId);
+        
+        // Chaos Engineering: 1% 확률로 장애 주입
+        int randomValue = ThreadLocalRandom.current().nextInt(100);
+        if (randomValue == 0) {
+            log.warn("[Dispatch] [Chaos Engineering] 1% 확률로 장애 주입 - EmailSendException 발생. billingId: {}", billingId);
+            throw EmailSendException.sendFailed(
+                    billingId != null ? billingId.toString() : null,
+                    new RuntimeException("Chaos Engineering: Intentional failure injection (1% probability)"));
+        }
+        
         emailService.sendBillingEmail(dispatchDto);
         log.info("[Dispatch] 청구서 발송 처리 완료. billingId: {}", billingId);
     }
