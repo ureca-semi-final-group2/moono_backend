@@ -10,6 +10,7 @@ import org.example.moono_backend.domain.member.UserDndPolicy;
 import org.example.moono_backend.kafka.producer.BillingProducerMessageDto;
 import org.example.moono_backend.repository.MemberCredentialRepository;
 import org.example.moono_backend.repository.UserDndPolicyRepository;
+import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.item.ItemProcessor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -26,9 +27,7 @@ public class SendingItemProcessor implements ItemProcessor<Billing, BillingProdu
     private final PreloadHolder preloadHolder;
     private final MemberPreloadListener memberPreloadListener;
 
-    // itemProcessor 에서 jobParameter 주입 받기
-    @Value("#{jobParameters['isForced'] ?: 'false'}")
-    private String isForcedStr;
+    private final String isForcedStr; // 생성자로 받음
 
     @Override
     public BillingProducerMessageDto process(Billing billing) throws Exception {
