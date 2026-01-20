@@ -25,9 +25,18 @@ public class BillingTestDataSourceConfig {
         DataSourceInitializer init = new DataSourceInitializer();
         init.setDataSource(dataSource);
 
-        ResourceDatabasePopulator populator =
-                new ResourceDatabasePopulator(new ClassPathResource("schema.sql"));
-        init.setDatabasePopulator(populator);
+        // schema.sql이 있으면 실행, 없으면 스킵 (JPA의 ddl-auto로 스키마 생성)
+        try {
+            ClassPathResource schemaResource = new ClassPathResource("schema.sql");
+            if (schemaResource.exists()) {
+                ResourceDatabasePopulator populator =
+                        new ResourceDatabasePopulator(schemaResource);
+                init.setDatabasePopulator(populator);
+            }
+        } catch (Exception e) {
+            // schema.sql이 없으면 JPA의 ddl-auto로 스키마 생성
+            // 에러를 무시하고 계속 진행
+        }
 
         return init;
     }
