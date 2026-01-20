@@ -3,11 +3,7 @@ package org.example.moono_backend.batch.sending;
 import org.example.moono_backend.batch.BatchMetrics;
 import org.example.moono_backend.batch.StepMetricsListener;
 import org.example.moono_backend.domain.Billing;
-<<<<<<< HEAD
-import org.example.moono_backend.kafka.producer.BillingDispatchMessageDto;
-=======
 import org.example.moono_backend.kafka.producer.BillingProducerMessageDto;
->>>>>>> 6fb031291537858862afa3e0247fb2d52c474eda
 import org.example.moono_backend.repository.MemberCredentialRepository;
 import org.example.moono_backend.repository.UserDndPolicyRepository;
 import org.springframework.batch.core.ChunkListener;
@@ -38,12 +34,8 @@ public class SendingJobConfig {
     private final JobRepository jobRepository;
     private final PlatformTransactionManager transactionManager;
     private final EntityManagerFactory entityManagerFactory;
-<<<<<<< HEAD
-    private final KafkaTemplate<String, BillingDispatchMessageDto> kafkaTemplate;
-    private final MemberPreloadListener sendingMemberPreloadListener;
-=======
     private final KafkaTemplate<String, BillingProducerMessageDto> kafkaTemplate;
->>>>>>> 6fb031291537858862afa3e0247fb2d52c474eda
+    private final MemberPreloadListener sendingMemberPreloadListener;
 
     private static final int CHUNK_SIZE = 1000;
 

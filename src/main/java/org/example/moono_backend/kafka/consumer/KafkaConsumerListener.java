@@ -25,7 +25,7 @@ import org.springframework.stereotype.Component;
  * - 기타 예외: 재시도 후 DLT로 전송
  * 
  * @Profile("consumer"): consumer 프로파일이 활성화된 경우에만 동작
- *   - 이유: 배치 작업과 Consumer를 분리하여 운영 환경에서 선택적으로 활성화
+ * - 이유: 배치 작업과 Consumer를 분리하여 운영 환경에서 선택적으로 활성화
  * 
  * 왜 BillingProducerMessageDto로 직접 받는가?
  * - Producer가 이미 BillingProducerMessageDto 객체를 보내고 있음
@@ -49,16 +49,17 @@ public class KafkaConsumerListener {
      * 
      * @param messageDto Kafka에서 수신한 BillingProducerMessageDto 객체
      *                   (Spring Kafka의 JsonDeserializer가 자동으로 역직렬화)
-     * @param ack 수동 커밋을 위한 Acknowledgment 객체
-     *            (ErrorHandler에서 성공/실패에 따라 자동으로 처리됨)
+     * @param ack        수동 커밋을 위한 Acknowledgment 객체
+     *                   (ErrorHandler에서 성공/실패에 따라 자동으로 처리됨)
      * 
-     * 처리 단계:
-     * 1. 비즈니스 로직 실행: BillingDispatchService.process()
-     * 2. 예외 발생 시: ErrorHandler가 재시도 및 DLT 전송 처리
+     *                   처리 단계:
+     *                   1. 비즈니스 로직 실행: BillingDispatchService.process()
+     *                   2. 예외 발생 시: ErrorHandler가 재시도 및 DLT 전송 처리
      * 
-     * 왜 예외를 다시 던지는가?
-     * - Spring Kafka의 ErrorHandler가 예외를 감지하여 재시도 및 DLT 전송을 처리하기 때문
-     * - 여기서 예외를 잡아서 처리하면 ErrorHandler가 동작하지 않음
+     *                   왜 예외를 다시 던지는가?
+     *                   - Spring Kafka의 ErrorHandler가 예외를 감지하여 재시도 및 DLT 전송을 처리하기
+     *                   때문
+     *                   - 여기서 예외를 잡아서 처리하면 ErrorHandler가 동작하지 않음
      */
     @KafkaListener(topics = TOPIC_NAME, groupId = GROUP_ID)
     public void consume(BillingProducerMessageDto messageDto, Acknowledgment ack) {
@@ -73,7 +74,7 @@ public class KafkaConsumerListener {
         } catch (EmailSendException e) {
             // 이메일 발송 실패는 일시적 네트워크 오류 등으로 발생할 수 있음
             // 따라서 재시도가 의미가 있음 (ErrorHandler가 재시도 처리)
-            log.warn("[Consumer] 이메일 발송 실패 (재시도 예정). billingId: {}, error: {}", 
+            log.warn("[Consumer] 이메일 발송 실패 (재시도 예정). billingId: {}, error: {}",
                     billingId, e.getMessage());
             throw e; // ErrorHandler가 재시도 처리
 
@@ -90,10 +91,10 @@ public class KafkaConsumerListener {
      * @param dto 메시지 DTO
      * @return billingId (null일 수 있음)
      * 
-     * 왜 별도 메서드로 분리했는가?
-     * - Null 안전성: header가 null일 수 있으므로 중복 체크 로직을 한 곳에 모음
-     * - DRY 원칙: billingId 추출 로직이 여러 곳에서 사용되므로 중복 제거
-     * - 가독성: null 체크 로직이 메인 로직을 방해하지 않음
+     *         왜 별도 메서드로 분리했는가?
+     *         - Null 안전성: header가 null일 수 있으므로 중복 체크 로직을 한 곳에 모음
+     *         - DRY 원칙: billingId 추출 로직이 여러 곳에서 사용되므로 중복 제거
+     *         - 가독성: null 체크 로직이 메인 로직을 방해하지 않음
      */
     private Long extractBillingId(BillingProducerMessageDto dto) {
         if (dto == null || dto.getHeader() == null) {

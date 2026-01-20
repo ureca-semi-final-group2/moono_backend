@@ -126,8 +126,7 @@ public class BillingDispatchService {
      */
     @Transactional
     private boolean checkQuietHours(BillingProducerMessageDto messageDto, Billing billing) {
-    protected boolean checkQuietHours(BillingProducerMessageDto messageDto, Billing billing) {
-        try{
+        try {
             String dndStart = messageDto.getReceiver().getDndStart();
             String dndEnd = messageDto.getReceiver().getDndEnd();
 
@@ -206,7 +205,7 @@ public class BillingDispatchService {
      */
     private BillingConsumerMessageDto convertToBillingDispatchDto(
             BillingProducerMessageDto messageDto, RawDetailsDto rawDetails) {
-        
+
         BillingConsumerMessageDto dto = new BillingConsumerMessageDto();
 
         // Header 변환
@@ -235,7 +234,8 @@ public class BillingDispatchService {
         receiver.setName(messageDto.getReceiver().getName());
         receiver.setEmail(messageDto.getReceiver().getEmail());
         receiver.setPhone(messageDto.getReceiver().getPhone());
-        // 금칙시간은 BillingProducerMessageDto에서 checkQuietHours()에서만 사용됨
+        // receiver.setDndStart(messageDto.getReceiver().getDndStart());
+        // receiver.setDndEnd(messageDto.getReceiver().getDndEnd());
         dto.setReceiver(receiver);
 
         // BillingSummary 변환
@@ -249,14 +249,12 @@ public class BillingDispatchService {
         // Details 변환 (RawDetailsDto에서 변환)
         // 이메일 템플릿 요구사항에 맞게 overageItem과 discountItem으로 변환
         BillingConsumerMessageDto.Details details = new BillingConsumerMessageDto.Details();
-        
+
         // Overages를 overageItem으로 변환 (type -> name, amount -> price)
         if (rawDetails.getOverages() != null) {
-            List<BillingConsumerMessageDto.AdditionalServiceItem> overageItems = 
-                rawDetails.getOverages().stream()
+            List<BillingConsumerMessageDto.AdditionalServiceItem> overageItems = rawDetails.getOverages().stream()
                     .map(overage -> {
-                        BillingConsumerMessageDto.AdditionalServiceItem item = 
-                            new BillingConsumerMessageDto.AdditionalServiceItem();
+                        BillingConsumerMessageDto.AdditionalServiceItem item = new BillingConsumerMessageDto.AdditionalServiceItem();
                         item.setName(getOverageDisplayName(overage.getType()));
                         item.setPrice(overage.getAmount());
                         return item;
@@ -264,14 +262,12 @@ public class BillingDispatchService {
                     .collect(Collectors.toList());
             details.setOverageItem(overageItems);
         }
-        
+
         // Discounts를 discountItem으로 변환 (type -> name)
         if (rawDetails.getDiscounts() != null) {
-            List<BillingConsumerMessageDto.DiscountItem> discountItems = 
-                rawDetails.getDiscounts().stream()
+            List<BillingConsumerMessageDto.DiscountItem> discountItems = rawDetails.getDiscounts().stream()
                     .map(discount -> {
-                        BillingConsumerMessageDto.DiscountItem item = 
-                            new BillingConsumerMessageDto.DiscountItem();
+                        BillingConsumerMessageDto.DiscountItem item = new BillingConsumerMessageDto.DiscountItem();
                         item.setName(getDiscountDisplayName(discount.getType()));
                         item.setAmount(discount.getAmount());
                         return item;
@@ -295,7 +291,7 @@ public class BillingDispatchService {
         if (type == null) {
             return "기타";
         }
-        
+
         return switch (type.toLowerCase()) {
             case "data", "over_data" -> "데이터 초과";
             case "voice", "over_voice" -> "통화량 초과";
@@ -314,7 +310,7 @@ public class BillingDispatchService {
         if (type == null) {
             return "기타 할인";
         }
-        
+
         return switch (type.toLowerCase()) {
             case "select_contract" -> "선택약정 할인";
             case "event" -> "이벤트 할인";
@@ -324,4 +320,3 @@ public class BillingDispatchService {
         };
     }
 }
- 
