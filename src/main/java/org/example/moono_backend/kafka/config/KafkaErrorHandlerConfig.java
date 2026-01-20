@@ -10,8 +10,9 @@ import org.springframework.kafka.listener.CommonErrorHandler;
 import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
 import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.kafka.support.serializer.DeserializationException;
-import org.springframework.util.backoff.BackOff;
-import org.springframework.util.backoff.ExponentialBackOff;
+// TODO: Chaos Engineering 테스트를 위해 일시적으로 주석처리
+// import org.springframework.util.backoff.BackOff;
+// import org.springframework.util.backoff.ExponentialBackOff;
 
 /**
  * Kafka 에러 처리 설정 클래스
@@ -23,11 +24,11 @@ import org.springframework.util.backoff.ExponentialBackOff;
  *
  * DLT로 전송되는 케이스:
  *
- * EmailSendException (이메일 발송 실패 - 1% 확률)
+ * EmailSendException (이메일 발송 실패 - 1% 확률, Chaos Engineering)
  *    - 발생 시점: BillingDispatchService.process() 실행 중
- *    - 원인: 이메일 API 오류, 네트워크 문제 등 (일시적 오류 가능)
- *    - 재시도: 가능 (Exponential Backoff로 재시도)
- *    - DLT 처리: 재시도 후에도 실패 시 → EmailSendDltConsumer에서 ParseStatus.SUCCESS로 저장
+ *    - 원인: Chaos Engineering 장애 주입 (1% 확률) 또는 이메일 API 오류, 네트워크 문제 등
+ *    - 재시도: 없음 (Chaos Engineering 테스트를 위해 Exponential Backoff 비활성화)
+ *    - DLT 처리: 예외 발생 시 즉시 DLT로 전송 → EmailSendDltConsumer에서 ParseStatus.SUCCESS로 저장
  *
  * DLT로 전송하지 않는 케이스:
  *
@@ -42,7 +43,7 @@ import org.springframework.util.backoff.ExponentialBackOff;
  * 1. Consumer에서 예외 발생
  * 2. DefaultErrorHandler가 예외 타입에 따라 처리:
  *    - DeserializationException: 로깅 후 메시지 스킵 (DLT로 전송 안 함)
- *    - EmailSendException: Exponential Backoff로 재시도 후 DLT로 전송
+ *    - EmailSendException: 재시도 없이 바로 DLT로 전송 (Chaos Engineering 테스트용)
  * 3. DLT Consumer(EmailSendDltConsumer)가 EmailFailLog에 저장
 
  */
@@ -50,10 +51,11 @@ import org.springframework.util.backoff.ExponentialBackOff;
 @Configuration
 public class KafkaErrorHandlerConfig {
 
-    private static final long INITIAL_INTERVAL_MS = 1000L; // 첫 재시도 간격: 1초
-    private static final double MULTIPLIER = 2.0; // 재시도 간격 배수: 2배씩 증가
-    private static final long MAX_INTERVAL_MS = 10000L; // 최대 재시도 간격: 10초
-    private static final long MAX_ELAPSED_TIME_MS = 30000L; // 최대 총 재시도 시간: 30초
+    // TODO: Chaos Engineering 테스트를 위해 일시적으로 주석처리
+    // private static final long INITIAL_INTERVAL_MS = 1000L; // 첫 재시도 간격: 1초
+    // private static final double MULTIPLIER = 2.0; // 재시도 간격 배수: 2배씩 증가
+    // private static final long MAX_INTERVAL_MS = 10000L; // 최대 재시도 간격: 10초
+    // private static final long MAX_ELAPSED_TIME_MS = 30000L; // 최대 총 재시도 시간: 30초
 
     // DLT 토픽명 접미사
     private static final String DLT_TOPIC_SUFFIX = ".dlt";
@@ -71,10 +73,9 @@ public class KafkaErrorHandlerConfig {
      *
      * 동작 방식:
      * 1. Consumer에서 EmailSendException 발생
-     * 2. Exponential Backoff로 재시도
-     * 3. 최대 재시도 횟수 초과 시 이 Recoverer가 호출됨
-     * 4. 원본 메시지를 DLT 토픽으로 전송
-     * 5. DLT Consumer(EmailSendDltConsumer)가 EmailFailLog에 저장
+     * 2. 재시도 없이 바로 이 Recoverer가 호출됨 (Chaos Engineering 테스트용)
+     * 3. 원본 메시지를 DLT 토픽으로 전송
+     * 4. DLT Consumer(EmailSendDltConsumer)가 EmailFailLog에 저장
      *    - ParseStatus.SUCCESS로 저장 (JSON은 정상)
      */
     @Bean
@@ -119,6 +120,8 @@ public class KafkaErrorHandlerConfig {
      * - 지속적 오류는 시스템 부하를 줄이기 위해 간격을 점진적으로 증가
      * - 최대 간격 제한으로 무한 대기를 방지
      */
+    // TODO: Chaos Engineering 테스트를 위해 일시적으로 주석처리
+    /*
     @Bean
     public BackOff exponentialBackOff() {
         ExponentialBackOff backOff = new ExponentialBackOff();
@@ -133,6 +136,7 @@ public class KafkaErrorHandlerConfig {
 
         return backOff;
     }
+    */
 
     /**
      * DefaultErrorHandler 생성
@@ -140,7 +144,6 @@ public class KafkaErrorHandlerConfig {
      * 역할: Consumer에서 발생한 예외를 처리하고 재시도 정책을 적용
      *
      * @param deadLetterPublishingRecoverer 최대 재시도 초과 시 DLT로 전송하는 Recoverer
-     * @param exponentialBackOff 재시도 간격 전략
      * @return CommonErrorHandler 인스턴스
      *
      * 처리 전략:
@@ -149,12 +152,12 @@ public class KafkaErrorHandlerConfig {
      *    - Producer에서 데이터 검증을 강화하여 예방해야 함
      *    - 로깅만 하고 메시지를 스킵하여 다음 메시지 처리 계속
      *
-     * 2. EmailSendException (이메일 발송 실패): Exponential Backoff로 재시도 후 DLT로 전송
-     *    - 이유: 일시적 네트워크 오류 등으로 발생할 수 있으므로 재시도 의미 있음
-     *    - 재시도 후에도 실패하면 DLT로 전송
+     * 2. EmailSendException (이메일 발송 실패): 재시도 없이 바로 DLT로 전송
+     *    - TODO: Chaos Engineering 테스트를 위해 Exponential Backoff 일시적으로 비활성화
+     *    - 재시도 없이 바로 DLT로 전송
      *    - DLT 처리: EmailSendDltConsumer에서 ParseStatus.SUCCESS로 저장 (JSON은 정상)
      *
-     * 3. 기타 예외: 재시도 후 DLT로 전송
+     * 3. 기타 예외: 재시도 없이 바로 DLT로 전송
      *
      * 왜 CommonErrorHandler를 반환하는가?
      * - DefaultErrorHandler는 CommonErrorHandler의 구현체
@@ -162,12 +165,14 @@ public class KafkaErrorHandlerConfig {
      */
     @Bean
     public CommonErrorHandler kafkaErrorHandler(
-            DeadLetterPublishingRecoverer deadLetterPublishingRecoverer,
-            BackOff exponentialBackOff) {
+            DeadLetterPublishingRecoverer deadLetterPublishingRecoverer) {
+            // TODO: Chaos Engineering 테스트를 위해 exponentialBackOff 파라미터 일시적으로 제거
+            // BackOff exponentialBackOff) {
 
+        // TODO: Chaos Engineering 테스트를 위해 재시도 없이 바로 DLT로 전송하도록 수정
         DefaultErrorHandler errorHandler = new DefaultErrorHandler(
-                deadLetterPublishingRecoverer,
-                exponentialBackOff
+                deadLetterPublishingRecoverer
+                // exponentialBackOff  // 일시적으로 주석처리
         );
 
         // DeserializationException은 재시도하지 않고, DLT로도 보내지 않음
@@ -190,7 +195,7 @@ public class KafkaErrorHandlerConfig {
 
         log.info("[ErrorHandler] DefaultErrorHandler 설정 완료. " +
                          "DeserializationException은 로깅 후 스킵 (DLT로 전송 안 함), " +
-                         "EmailSendException 등 기타 예외는 재시도 후 DLT로 전송");
+                         "EmailSendException 등 기타 예외는 재시도 없이 바로 DLT로 전송 (Chaos Engineering 테스트용)");
 
         return errorHandler;
     }
