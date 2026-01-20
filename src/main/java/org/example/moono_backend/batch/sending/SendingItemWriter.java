@@ -1,4 +1,4 @@
-package org.example.moono_backend.batch.sending.step;
+package org.example.moono_backend.batch.sending;
 
 import org.example.moono_backend.batch.BatchMetrics;
 import org.example.moono_backend.kafka.producer.BillingProducerMessageDto;
@@ -18,7 +18,7 @@ public class SendingItemWriter implements ItemWriter<BillingProducerMessageDto> 
         long startTime = System.nanoTime();
         try {
             for (BillingProducerMessageDto messageDto : chunk.getItems()) {
-                kafkaTemplate.send("queuing.billing.email.send", messageDto);
+                kafkaTemplate.send("sending-batch-topic", messageDto);
             }
             // 테스트에서 컨슈머에게 전송이 완료된것을 확실하게 하기 위해 flush 호출
             kafkaTemplate.flush();
@@ -27,6 +27,7 @@ public class SendingItemWriter implements ItemWriter<BillingProducerMessageDto> 
             long elapsedNanos = System.nanoTime() - startTime;
             metrics.kafkaSendNanos.addAndGet(elapsedNanos);
         }
+
     }
 
     /*
