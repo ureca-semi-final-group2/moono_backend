@@ -1,0 +1,111 @@
+spring:
+  application:
+    name: mono_backend
+
+  datasource:
+    driver-class-name: org.postgresql.Driver
+    url: jdbc:postgresql://localhost:5432/postgres
+    username: postgres
+    password: postgres
+
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: false
+        use_sql_comments: false
+    defer-datasource-initialization: true
+
+  data:
+    redis:
+      host: ${SPRING_REDIS_HOST:localhost}
+      port: 6379
+    jpa:
+      repositories:
+        enabled: true
+
+  batch:
+    jdbc:
+      initialize-schema: always # 배치 메타 테이블 자동 생성
+    job:
+      enabled: false
+
+
+  kafka:
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    listener:
+      ack-mode: manual_immediate
+    producer:
+      acks: all # 모든 ISR의 확인 응답 대기(데이터 유실 방지)
+      properties:
+        # 순서 번호가 꼬였을 때 무한 재시도하는 것을 방지
+        max.in.flight.requests.per.connection: 5
+        retries: 3
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+
+    consumer:
+      group-id: my-group
+      enable-auto-commit: false
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "*"
+
+management:
+  endpoint:
+    health:
+      show-components: always
+  endpoints:
+    web:
+      exposure:
+        include: "*"
+  info:
+    java:
+      enabled: true
+    os:
+      enabled: true
+    env:
+      enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+  observations:
+    key-values:
+      spring:
+        batch:
+          job:
+            enabled: true
+server:
+  tomcat:
+    mbeanregistry:
+      enabled: true
+
+logging:
+  level:
+    root: warn
+    # 1. SQL 관련 로그 완전히 끄기 (성능 저하 방지)
+    org.hibernate.SQL: warn
+    org.hibernate.orm.jdbc.bind: warn
+    org.hibernate.type.descriptor.sql.BasicBinder: warn
+
+    # 2. 카프카/스프링 내부 상세 로그 끄기
+    org.springframework.kafka: warn
+    org.apache.kafka: warn
+    org.springframework.batch: warn
+
+    # 3. 내 프로젝트 로그 설정
+    org.example.moono_backend: warn
+
+    # 만약 컨슈머 수신 로그가 너무 많다면 클래스별로 조정 가능
+    org.example.moono_backend.kafka.consumer.KafkaConsumerListener: info # 개별 수신 로그는 끄기
+    org.example.moono_backend.batch: info # 배치 진행률 리스너 로그는 유지
+    org.example.moono_backend.monitoring: INFO  # 성능 측정 로그
+
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
