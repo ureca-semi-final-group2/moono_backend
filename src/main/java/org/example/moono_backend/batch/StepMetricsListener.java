@@ -101,14 +101,14 @@ public class StepMetricsListener implements StepExecutionListener, ChunkListener
 
         // 배치 요약 통계를 JSON 로그로 출력 (test/dev 환경에서만)
         if (performanceLogger != null) {
+            // elapsedMs를 초 단위로 변환
+            double elapsedSeconds = elapsedMs / 1000.0;
+            
             performanceLogger.logBatchSummary(
+                    batchMetrics,
                     stepExecution.getJobExecutionId(),
                     stepExecution.getStepName(),
-                    read,
-                    write,
-                    elapsedMs,
-                    tps,
-                    batchMetrics
+                    elapsedSeconds
             );
             
             // 배치 완료 후 메트릭 큐 초기화 (다음 배치를 위해)
