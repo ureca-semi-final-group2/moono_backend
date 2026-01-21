@@ -1,4 +1,4 @@
-package org.example.moono_backend.service;
+package org.example.moono_backend.batch.billing.service;
 
 import org.example.moono_backend.domain.discount.DiscountPolicy;
 import org.example.moono_backend.domain.member.MemberCredential;
