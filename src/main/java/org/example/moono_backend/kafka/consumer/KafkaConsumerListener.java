@@ -2,13 +2,21 @@ package org.example.moono_backend.kafka.consumer;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.example.moono_backend.batch.BatchMetrics;
 import org.example.moono_backend.exception.EmailSendException;
 import org.example.moono_backend.kafka.producer.BillingProducerMessageDto;
+import org.example.moono_backend.monitoring.PerformanceLogger;
+import org.example.moono_backend.monitoring.PerformanceMetrics;
 import org.example.moono_backend.service.message.BillingDispatchService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Profile;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.support.Acknowledgment;
+import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.stereotype.Component;
+
+import java.time.Duration;
+import java.time.Instant;
 
 /**
  * Kafka Consumer Listener
@@ -42,18 +50,28 @@ public class KafkaConsumerListener {
     private static final String GROUP_ID = "cg-billing-email-send";
 
     private final BillingDispatchService billingDispatchService;
+    
+    // 성능 측정용 (Optional - test/dev 환경에서만 Bean 등록됨)
+    @Autowired(required = false)
+    private BatchMetrics batchMetrics;
+    
+    @Autowired(required = false)
+    private PerformanceLogger performanceLogger;
 
     /**
      * Kafka 메시지 소비 및 처리
      * 
      * @param messageDto Kafka에서 수신한 BillingProducerMessageDto 객체
      *                   (Spring Kafka의 JsonDeserializer가 자동으로 역직렬화)
+     * @param sentTimestamp Kafka 헤더에서 전달된 전송 시작 시간 (ISO-8601 형식)
+     *                      SendingItemWriter에서 설정한 타임스탬프
      * @param ack        수동 커밋을 위한 Acknowledgment 객체
      *                   (ErrorHandler에서 성공/실패에 따라 자동으로 처리됨)
      * 
      *                   처리 단계:
      *                   1. 비즈니스 로직 실행: BillingDispatchService.process()
-     *                   2. 예외 발생 시: ErrorHandler가 재시도 및 DLT 전송 처리
+     *                   2. 성능 측정: Consumer 처리 시간, End-to-End 시간 계산
+     *                   3. 예외 발생 시: ErrorHandler가 재시도 및 DLT 전송 처리
      * 
      *                   왜 예외를 다시 던지는가?
      *                   - Spring Kafka의 ErrorHandler가 예외를 감지하여 재시도 및 DLT 전송을 처리하기
@@ -61,15 +79,60 @@ public class KafkaConsumerListener {
      *                   - 여기서 예외를 잡아서 처리하면 ErrorHandler가 동작하지 않음
      */
     @KafkaListener(topics = TOPIC_NAME, groupId = GROUP_ID)
-    public void consume(BillingProducerMessageDto messageDto, Acknowledgment ack) {
+    public void consume(
+            BillingProducerMessageDto messageDto,
+            @Header(value = "sentTimestamp", required = false) String sentTimestamp,
+            Acknowledgment ack) {
+        
         Long billingId = extractBillingId(messageDto);
         log.info("[Consumer] 메시지 수신 시작. billingId: {}", billingId);
+
+        // 성능 측정 시작
+        long consumerStartNanos = System.nanoTime();
+        Instant receivedAt = Instant.now();
 
         try {
             // BillingDispatchService를 통해 실제 비즈니스 로직 처리
             billingDispatchService.process(messageDto);
             log.info("[Consumer] 청구서 발송 처리 성공. billingId: {}", billingId);
             ack.acknowledge(); // 해당 코드가 없으면 다음 메세지로 넘어가지 못함.
+
+            // 성능 측정 종료 및 로깅 (test/dev 환경에서만)
+            if (performanceLogger != null && batchMetrics != null) {
+                long consumerTotalNanos = System.nanoTime() - consumerStartNanos;
+                long consumerTotalMs = consumerTotalNanos / 1_000_000;
+                
+                // End-to-End 시간 계산 (sentTimestamp가 있는 경우)
+                long endToEndMs = 0;
+                if (sentTimestamp != null && !sentTimestamp.isEmpty()) {
+                    try {
+                        Instant sentAt = Instant.parse(sentTimestamp);
+                        Duration endToEndDuration = Duration.between(sentAt, receivedAt);
+                        endToEndMs = endToEndDuration.toMillis() + consumerTotalMs;
+                    } catch (Exception e) {
+                        log.warn("[Consumer] sentTimestamp 파싱 실패. sentTimestamp: {}", sentTimestamp, e);
+                    }
+                }
+                
+                // BatchMetrics에 Consumer 측정값 누적
+                batchMetrics.consumerTotalNanos.addAndGet(consumerTotalNanos);
+                if (endToEndMs > 0) {
+                    batchMetrics.endToEndNanos.addAndGet(endToEndMs * 1_000_000); // ms -> nanos
+                }
+                
+                // PerformanceMetrics 생성 (TODO: BillingDispatchService에서 DB/이메일 시간 받아오기)
+                PerformanceMetrics metrics = PerformanceMetrics.builder()
+                        .billingId(billingId)
+                        .kafkaSendMs(0) // TODO: 청크 단위 평균값 계산 필요
+                        .consumerTotalMs(consumerTotalMs)
+                        .dbUpdateMs(0) // TODO: BillingDispatchService에서 측정값 받아오기
+                        .emailSendMs(0) // TODO: BillingDispatchService에서 측정값 받아오기
+                        .endToEndMs(endToEndMs)
+                        .build();
+                
+                // 샘플링 로그 및 데이터 누적 (PerformanceLogger 내부에서 샘플링 처리)
+                performanceLogger.logMessagePerformance(metrics, batchMetrics);
+            }
 
         } catch (EmailSendException e) {
             // 이메일 발송 실패는 일시적 네트워크 오류 등으로 발생할 수 있음
