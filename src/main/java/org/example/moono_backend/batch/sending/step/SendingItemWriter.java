@@ -36,6 +36,8 @@ public class SendingItemWriter implements ItemWriter<BillingProducerMessageDto> 
     @Override
     public void write(Chunk<? extends BillingProducerMessageDto> chunk) throws Exception {
         long startTime = System.nanoTime();
+        int successCount = 0;
+        
         try {
             for (BillingProducerMessageDto messageDto : chunk.getItems()) {
                 // ProducerRecord 생성하여 헤더에 타임스탬프 추가
@@ -52,6 +54,7 @@ public class SendingItemWriter implements ItemWriter<BillingProducerMessageDto> 
                 
                 // Kafka로 전송
                 kafkaTemplate.send(record);
+                successCount++;
             }
             // 테스트에서 컨슈머에게 전송이 완료된것을 확실하게 하기 위해 flush 호출
             kafkaTemplate.flush();
@@ -59,6 +62,7 @@ public class SendingItemWriter implements ItemWriter<BillingProducerMessageDto> 
         } finally {
             long elapsedNanos = System.nanoTime() - startTime;
             metrics.kafkaSendNanos.addAndGet(elapsedNanos);
+            metrics.kafkaSuccess.addAndGet(successCount);
         }
     }
 

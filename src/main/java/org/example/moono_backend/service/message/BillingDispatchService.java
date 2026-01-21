@@ -32,6 +32,27 @@ public class BillingDispatchService {
     private final ObjectMapper objectMapper;
 
     /**
+     * 청구서 발송 처리 결과 (성능 측정값 포함)
+     */
+    public static class DispatchResult {
+        private final long dbUpdateMs;
+        private final long emailSendMs;
+
+        public DispatchResult(long dbUpdateMs, long emailSendMs) {
+            this.dbUpdateMs = dbUpdateMs;
+            this.emailSendMs = emailSendMs;
+        }
+
+        public long getDbUpdateMs() {
+            return dbUpdateMs;
+        }
+
+        public long getEmailSendMs() {
+            return emailSendMs;
+        }
+    }
+
+    /**
      * 청구서 발송 처리 메인 메서드
      *
      * 실패 시 예외 던져 Consumer가 재시도하거나 DLT로 보내기
@@ -40,19 +61,32 @@ public class BillingDispatchService {
      * 트랜잭션 관리:
      * - DB 업데이트는 트랜잭션 내부에서 처리
      * - 이메일 발송은 트랜잭션 외부에서 처리 (외부 API 호출)
+     * 
+     * @param messageDto 메시지 DTO
+     * @return DispatchResult - DB 업데이트 시간, 이메일 발송 시간 포함
+     * @throws EmailSendException 이메일 발송 실패 시
      */
-    public void process(BillingProducerMessageDto messageDto) throws EmailSendException {
+    public DispatchResult process(BillingProducerMessageDto messageDto) throws EmailSendException {
         Long billingId = messageDto.getHeader().getBillingId();
         log.info("[Dispatch] 청구서 발송 처리 시작. billingId: {}", billingId);
 
-        try {
-            // 트랜잭션 내부: DB 조회 및 상태 업데이트
-            ProcessResult result = processInternal(messageDto);
+        long dbUpdateMs = 0;
+        long emailSendMs = 0;
 
-            // 트랜잭션 외부: 이메일 발송 (외부 API 호출)
+        try {
+            // 트랜잭션 내부: DB 조회 및 상태 업데이트 (시간 측정)
+            long dbStartNanos = System.nanoTime();
+            ProcessResult result = processInternal(messageDto);
+            dbUpdateMs = (System.nanoTime() - dbStartNanos) / 1_000_000; // nanos -> ms
+
+            // 트랜잭션 외부: 이메일 발송 (외부 API 호출, 시간 측정)
             if (result.shouldSendEmail()) {
+                long emailStartNanos = System.nanoTime();
                 sendEmailAfterTransaction(result.getDispatchDto(), billingId);
+                emailSendMs = (System.nanoTime() - emailStartNanos) / 1_000_000; // nanos -> ms
             }
+
+            return new DispatchResult(dbUpdateMs, emailSendMs);
 
         } catch (EmailSendException e) {
             // 이메일 발송 실패는 그대로 전파하여 Consumer가 재시도하도록 함

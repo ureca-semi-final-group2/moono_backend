@@ -92,8 +92,8 @@ public class KafkaConsumerListener {
         Instant receivedAt = Instant.now();
 
         try {
-            // BillingDispatchService를 통해 실제 비즈니스 로직 처리
-            billingDispatchService.process(messageDto);
+            // BillingDispatchService를 통해 실제 비즈니스 로직 처리 (성능 측정값 반환)
+            BillingDispatchService.DispatchResult dispatchResult = billingDispatchService.process(messageDto);
             log.info("[Consumer] 청구서 발송 처리 성공. billingId: {}", billingId);
             ack.acknowledge(); // 해당 코드가 없으면 다음 메세지로 넘어가지 못함.
 
@@ -116,17 +116,27 @@ public class KafkaConsumerListener {
                 
                 // BatchMetrics에 Consumer 측정값 누적
                 batchMetrics.consumerTotalNanos.addAndGet(consumerTotalNanos);
+                batchMetrics.dbUpdateNanos.addAndGet(dispatchResult.getDbUpdateMs() * 1_000_000); // ms -> nanos
+                batchMetrics.emailSendNanos.addAndGet(dispatchResult.getEmailSendMs() * 1_000_000); // ms -> nanos
                 if (endToEndMs > 0) {
                     batchMetrics.endToEndNanos.addAndGet(endToEndMs * 1_000_000); // ms -> nanos
                 }
                 
-                // PerformanceMetrics 생성 (TODO: BillingDispatchService에서 DB/이메일 시간 받아오기)
+                // Kafka 전송 시간 계산 (청크 단위 평균값)
+                // kafkaSendNanos / kafkaSuccess = 평균 전송 시간
+                long kafkaSendMs = 0;
+                long kafkaSuccess = batchMetrics.kafkaSuccess.get();
+                if (kafkaSuccess > 0) {
+                    kafkaSendMs = (batchMetrics.kafkaSendNanos.get() / kafkaSuccess) / 1_000_000;
+                }
+                
+                // PerformanceMetrics 생성
                 PerformanceMetrics metrics = PerformanceMetrics.builder()
                         .billingId(billingId)
-                        .kafkaSendMs(0) // TODO: 청크 단위 평균값 계산 필요
+                        .kafkaSendMs(kafkaSendMs)
                         .consumerTotalMs(consumerTotalMs)
-                        .dbUpdateMs(0) // TODO: BillingDispatchService에서 측정값 받아오기
-                        .emailSendMs(0) // TODO: BillingDispatchService에서 측정값 받아오기
+                        .dbUpdateMs(dispatchResult.getDbUpdateMs())
+                        .emailSendMs(dispatchResult.getEmailSendMs())
                         .endToEndMs(endToEndMs)
                         .build();
                 
