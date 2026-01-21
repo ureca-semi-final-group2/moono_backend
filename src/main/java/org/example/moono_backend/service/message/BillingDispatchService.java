@@ -67,9 +67,10 @@ public class BillingDispatchService {
     /**
      * 트랜잭션 내부에서 수행되는 DB 작업
      * 
-     * - 멱등성 확인
+     * - 멱등성 확인 (COMPLETED 상태 체크)
      * - Billing 조회
-     * - 금칙 시간 확인 및 상태 업데이트
+     * - SEND_PENDING 상태 확인 (SEND_PENDING이 아니면 스킵)
+     * - 금칙 시간 확인 및 상태 업데이트 (IN_QUIET_HOUR 또는 COMPLETED)
      * - DTO 변환 준비
      * 
      * @param messageDto 메시지 DTO
@@ -87,24 +88,31 @@ public class BillingDispatchService {
         // 2. Billing 조회
         Billing billing = getBillingOrThrow(billingId);
 
-        // 3. 강제 발송 확인
+        // 3. SEND_PENDING 상태 확인 - SEND_PENDING이 아니면 처리하지 않음
+        if (billing.getSendStatus() != SendStatus.SEND_PENDING) {
+            log.info("[Dispatch] SEND_PENDING 상태가 아님. 처리 스킵. billingId: {}, currentStatus: {}", 
+                    billingId, billing.getSendStatus());
+            return ProcessResult.skip();
+        }
+
+        // 4. 강제 발송 확인
         boolean isForced = messageDto.getHeader().isForced();
 
-        // 4. 금칙 시간 확인 (강제 발송이 아닌 경우)
+        // 5. 금칙 시간 확인 (강제 발송이 아닌 경우)
         if (!isForced && checkQuietHours(messageDto, billing)) {
             log.info("[Dispatch] 금칙 시간으로 인해 발송 보류. billingId: {}", billingId);
             return ProcessResult.skip();
         }
 
-        // 5. rawDetails 파싱 및 변환 (json 문자열을 RawDetailsDto로 파싱)
+        // 6. rawDetails 파싱 및 변환 (json 문자열을 RawDetailsDto로 파싱)
         RawDetailsDto rawDetails = parseRawDetails(messageDto.getRawDetails(), billingId);
 
-        // 6. BillingProducerMessageDto를 BillingConsumerMessageDto로 변환
+        // 7. BillingProducerMessageDto를 BillingConsumerMessageDto로 변환
         BillingConsumerMessageDto dispatchDto = convertToBillingDispatchDto(messageDto, rawDetails);
 
-        // 7. 발송 완료 상태 업데이트 (트랜잭션 내부에서 커밋)
+        // 8. 발송 완료 상태 업데이트 (트랜잭션 내부에서 커밋)
         updateBillingStatus(billing, SendStatus.COMPLETED);
-        log.info("[Dispatch] 청구서 상태 업데이트 완료. billingId: {}", billingId);
+        log.info("[Dispatch] 청구서 상태 업데이트 완료 (SEND_PENDING → COMPLETED). billingId: {}", billingId);
 
         return ProcessResult.send(dispatchDto);
     }
@@ -171,6 +179,8 @@ public class BillingDispatchService {
      * 
      * 이미 COMPLETED 상태인 청구서는 재처리하지 않습니다.
      * 
+     * 참고: SEND_PENDING 상태 체크는 processInternal()에서 별도로 수행됩니다.
+     * 
      * @param billingId 청구서 ID
      * @return true: 이미 처리 완료됨, false: 처리 필요
      */
@@ -182,10 +192,13 @@ public class BillingDispatchService {
             return false;
         }
         Billing billing = billingOpt.get();
-        boolean isCompleted = billing.getSendStatus() == SendStatus.COMPLETED;
+        SendStatus currentStatus = billing.getSendStatus();
+        
+        // COMPLETED는 이미 처리 완료 (멱등성 보장)
+        boolean isCompleted = currentStatus == SendStatus.COMPLETED;
 
         if (isCompleted) {
-            log.info("[Dispatch] 이미 처리된 청구서. billingId: {}, status: {}", billingId, billing.getSendStatus());
+            log.info("[Dispatch] 이미 처리된 청구서. billingId: {}, status: {}", billingId, currentStatus);
         }
         return isCompleted;
     }
