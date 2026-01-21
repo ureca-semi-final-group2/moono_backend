@@ -40,7 +40,9 @@ class BillingSourceReaderOnlyTest {
         this.context = new AnnotationConfigApplicationContext(BillingTestDataSourceConfig.class);
         this.dataSource = context.getBean(DataSource.class);
         this.jdbcTemplate = new JdbcTemplate(this.dataSource);
-        this.billingBatch = new BillingBatch(null, null, null, null,null);
+        // BillingBatch 생성자: JobRepository, PlatformTransactionManager, 
+        // ContractDiscountService, EventDiscountService, AdditionalServiceDiscountService, LoyaltyDiscountService
+        this.billingBatch = new BillingBatch(null, null, null, null, null, null);
         this.fixture = new BillingFixture(jdbcTemplate);
 
         fixture.seedDefaultScenario(USAGE_DATE);

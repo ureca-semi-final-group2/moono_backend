@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <!-- 
+        성능 측정 로그를 별도의 JSON 파일로 저장하는 Logback 설정
+        
+        특징:
+        - 비동기 Appender 사용으로 성능 영향 최소화
+        - 날짜별 롤링 정책 (최대 30일 보관)
+        - test, dev 프로파일에서만 활성화
+    -->
+
+    <!-- 로그 파일 저장 경로 -->
+    <property name="LOG_DIR" value="logs" />
+    <property name="PERFORMANCE_LOG_FILE" value="${LOG_DIR}/performance-metrics" />
+
+    <!-- 콘솔 출력 (기본 애플리케이션 로그) -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- 성능 측정 JSON 로그 파일 Appender -->
+    <appender name="PERFORMANCE_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${PERFORMANCE_LOG_FILE}.json</file>
+        
+        <!-- 롤링 정책: 날짜별 + 파일 크기 -->
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <!-- 파일명 패턴: performance-metrics-2026-01-20.json -->
+            <fileNamePattern>${PERFORMANCE_LOG_FILE}-%d{yyyy-MM-dd}.json</fileNamePattern>
+            
+            <!-- 최대 보관 기간: 30일 -->
+            <maxHistory>30</maxHistory>
+            
+            <!-- 전체 로그 파일 최대 크기: 1GB -->
+            <totalSizeCap>1GB</totalSizeCap>
+        </rollingPolicy>
+        
+        <!-- 인코더: JSON 로그를 그대로 출력 -->
+        <encoder>
+            <pattern>%msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- 비동기 Appender: 성능 영향 최소화 -->
+    <appender name="ASYNC_PERFORMANCE" class="ch.qos.logback.classic.AsyncAppender">
+        <!-- 참조할 실제 Appender -->
+        <appender-ref ref="PERFORMANCE_FILE" />
+        
+        <!-- 큐 크기: 로그가 많을 때 대기할 수 있는 최대 개수 -->
+        <queueSize>512</queueSize>
+        
+        <!-- 큐가 가득 찼을 때 로그 유실 방지 (false = 블로킹) -->
+        <discardingThreshold>0</discardingThreshold>
+        
+        <!-- 애플리케이션 종료 시 큐에 남은 로그 처리 대기 시간 (ms) -->
+        <maxFlushTime>5000</maxFlushTime>
+    </appender>
+
+    <!-- PerformanceLogger의 로그를 ASYNC_PERFORMANCE로 전달 -->
+    <logger name="org.example.moono_backend.monitoring.PerformanceLogger" level="INFO" additivity="false">
+        <appender-ref ref="ASYNC_PERFORMANCE" />
+    </logger>
+
+    <!-- 루트 로거: 기본 애플리케이션 로그 -->
+    <root level="INFO">
+        <appender-ref ref="CONSOLE" />
+    </root>
+
+    <!-- 
+        프로파일별 설정
+        - test, dev: 성능 측정 활성화
+        - prod: 성능 측정 비활성화 (PerformanceLogger Bean이 등록되지 않음)
+    -->
+    <springProfile name="test,dev">
+        <logger name="org.example.moono_backend.monitoring" level="INFO" />
+    </springProfile>
+
+    <springProfile name="prod">
+        <logger name="org.example.moono_backend.monitoring" level="OFF" />
+    </springProfile>
+
+</configuration>
