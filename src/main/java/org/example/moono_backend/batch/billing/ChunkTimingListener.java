@@ -10,7 +10,7 @@ import org.springframework.batch.core.StepExecution;
 import org.springframework.batch.core.StepExecutionListener;
 import org.springframework.batch.core.ExitStatus;
 
-import java.util.List;
+import org.springframework.batch.core.scope.context.StepContext;
 import org.springframework.batch.item.Chunk;
 
 /**
@@ -41,15 +41,14 @@ public class ChunkTimingListener<I, O>
     private long processTotalNs;
     private long writeTotalNs;
 
+    // 이번 chunk에서 콜백이 발생한 횟수
     private int readCount;
     private int processCount;
     private int writeCount;
 
-    private StepExecution stepExecution;
-
     @Override
     public void beforeStep(StepExecution stepExecution) {
-        this.stepExecution = stepExecution;
+        // stepExecution을 필드로 저장하지 않는다(파티션끼리 섞일 수 있음)
         log.info("[Batch] Step start: {}", stepExecution.getStepName());
         return;
     }
@@ -86,12 +85,15 @@ public class ChunkTimingListener<I, O>
     public void afterChunk(ChunkContext context) {
         long chunkTotalNs = System.nanoTime() - chunkStartNs;
 
+        // context에서 현재 실행 중인 정확한 StepName을 가져옴
+        StepExecution se = resolveStepExecution(context);
+        String stepName = resolveStepName(context, se);
         // stepExecution에서 커밋/청크 인덱스 유추 가능(정확한 "청크 번호"는 직접 카운팅하는 편이 더 안전)
-        int commitCount = (stepExecution != null) ? (int) stepExecution.getCommitCount() : -1;
+        int commitCount = (se != null) ? (int) se.getCommitCount() : -1;
 
         log.info(
                 "[ChunkTiming] step={}, commitCount={}, chunkTotal={} ms | read={} ms({} items) | process={} ms({} items) | write={} ms({} items)",
-                (stepExecution != null ? stepExecution.getStepName() : "unknown"),
+                stepName,
                 commitCount,
                 nsToMs(chunkTotalNs),
                 nsToMs(readTotalNs), readCount,
@@ -101,8 +103,9 @@ public class ChunkTimingListener<I, O>
 
     @Override
     public void afterChunkError(ChunkContext context) {
-        log.warn("[ChunkTiming] chunk error occurred. step={}",
-                (stepExecution != null ? stepExecution.getStepName() : "unknown"));
+        StepExecution se = resolveStepExecution(context);
+        String stepName = resolveStepName(context, se);
+        log.warn("[ChunkTiming] chunk error occurred. step={}", stepName);
     }
 
     // -------- Read timing --------
@@ -158,6 +161,30 @@ public class ChunkTimingListener<I, O>
         this.writeTotalNs += (System.nanoTime() - writeStartNs);
         log.warn("[ChunkTiming] write error: {}", exception.getMessage(), exception);
     }
+
+    private StepExecution resolveStepExecution(ChunkContext context) {
+        try {
+            StepContext stepContext = context.getStepContext();
+            if (stepContext == null) return null;
+            return stepContext.getStepExecution();
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private String resolveStepName(ChunkContext context, StepExecution se) {
+        // StepExecution이 있으면 그 이름이 제일 정확
+        if (se != null) return se.getStepName();
+
+        // fallback: context의 stepName
+        try {
+            String n = context.getStepContext().getStepName();
+            return (n != null ? n : "unknown");
+        } catch (Exception e) {
+            return "unknown";
+        }
+    }
+
 
     private static long nsToMs(long ns) {
         return ns / 1_000_000L;

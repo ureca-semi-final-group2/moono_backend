@@ -41,8 +41,10 @@ import org.springframework.batch.core.Step;
 import org.springframework.batch.core.StepExecutionListener;
 import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.core.job.builder.JobBuilder;
+import org.springframework.batch.core.partition.support.Partitioner;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.builder.StepBuilder;
+import org.springframework.batch.item.ExecutionContext;
 import org.springframework.batch.item.ItemProcessor;
 import org.springframework.batch.item.ItemWriter;
 import org.springframework.batch.item.database.JdbcBatchItemWriter;
@@ -56,6 +58,7 @@ import org.springframework.batch.item.support.CompositeItemWriter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.task.TaskExecutor;
 import org.springframework.dao.CannotAcquireLockException;
 import org.springframework.dao.QueryTimeoutException;
 import org.springframework.dao.TransientDataAccessException;
@@ -65,6 +68,7 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.core.namedparam.SqlParameterSource;
 import org.springframework.retry.backoff.BackOffPolicy;
 import org.springframework.retry.backoff.ExponentialBackOffPolicy;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.transaction.PlatformTransactionManager;
 
 import javax.sql.DataSource;
@@ -83,26 +87,76 @@ public class BillingBatch {
     private final LoyaltyDiscountService loyaltyDiscountService;
 
     private static final int CHUNK_SIZE = 1000;
+    private static final int GRID_SIZE = 4;
 
     @Bean
-    public Job billingJob(Step discountStep, BatchMetricsListener batchMetricsListener) {
+    public Job billingJob(Step masterStep, BatchMetricsListener batchMetricsListener) {
         return new JobBuilder("billingJob", jobRepository)
-                .start(discountStep)
+                .start(masterStep)
                 .listener(batchMetricsListener)
                 .build();
     }
 
+    // Master Step (Partitioning)
     @Bean
-    public Step discountStep(
+    public Step masterStep(Step workerStep) {
+        return new StepBuilder("masterStep", jobRepository)
+                /**
+                 * partitioner("workerStep", partitioner):
+                 * - workerStep을 gridSize만큼 복제(파티션별 StepExecution 생성)
+                 * - 각 파티션에 ExecutionContext(파티션 번호 등)를 넘겨줌
+                 */
+                .partitioner("workerStep", publicInfoHashPartitioner())
+                .step(workerStep)
+                .gridSize(GRID_SIZE)
+                .taskExecutor(batchTaskExecutor()) // 병렬 실행을 위한 thread pool
+                .build();
+    }
+
+    /**
+     * UUID/String 기반 Hash 파티셔너
+     * - 실제 데이터 분할은 SQL WHERE에서 Hash 조건으로 수행
+     * - 여기서는 파티션 번호만 0...gridSize - 1로 생성
+     */
+    @Bean
+    public Partitioner publicInfoHashPartitioner() {
+        return gridSize -> {
+            Map<String, ExecutionContext> result = new HashMap<>();
+            for (int i = 0; i < gridSize; i++) {
+                ExecutionContext ctx = new ExecutionContext();
+                ctx.putInt("partition", i);         // 현재 파티션 번호
+                ctx.putInt("gridSize", gridSize);   // 전체 파티션 수
+                result.put("partition" + i, ctx);
+            }
+            return result;
+        };
+    }
+
+    /**
+     * 파티셔닝 병렬 실행 스레드 풀.
+     */
+    @Bean
+    public TaskExecutor batchTaskExecutor() {
+        ThreadPoolTaskExecutor ex = new ThreadPoolTaskExecutor();
+        ex.setCorePoolSize(GRID_SIZE);
+        ex.setMaxPoolSize(GRID_SIZE);
+        ex.setQueueCapacity(0); // 파티션 실행은 보통 큐 없이 바로 실행
+        ex.setThreadNamePrefix("billing-part-");
+        ex.initialize();
+        return ex;
+    }
+
+    // Worker Step (실제 처리 Step, 기존 discountStep)
+    @Bean
+    public Step workerStep(
             JdbcPagingItemReader<BillingSourceRow> billingSourceReader,
             ItemProcessor<BillingSourceRow, BillingWriteItem> billingProcessor,
             CompositeItemWriter<BillingWriteItem> billingCompositeWriter,
-            LastIdListener lastIdStepListener,
             ChunkTimingListener<BillingSourceRow, BillingWriteItem> chunkTimingListener,
             MemberPreloadListener billingMemberPreloadListener, // 별명으로 주입
             RegistrationPreloadListener registrationPreloadListener,
             AdditionalServicePreloadListener additionalServicePreloadListener) {
-        return new StepBuilder("discountStep", jobRepository)
+        return new StepBuilder("workerStep", jobRepository)
                 .<BillingSourceRow, BillingWriteItem>chunk(CHUNK_SIZE, platformTransactionManager)
                 .reader(billingSourceReader)
                 .processor(billingProcessor)
@@ -115,8 +169,6 @@ public class BillingBatch {
                 .retry(CannotAcquireLockException.class) // 락 획득 실패
                 .retryLimit(3) // 재시도 횟수
                 .backOffPolicy(exponentialBackOff()) // 재시도시 대기 시간(0.5s -> 1s -> 2s)
-                .listener((StepExecutionListener) lastIdStepListener)
-                .listener((ItemWriteListener<? super BillingWriteItem>) lastIdStepListener)
                 .listener((StepExecutionListener) chunkTimingListener)
                 .listener((ChunkListener) chunkTimingListener)
                 .listener((ItemReadListener<? super BillingSourceRow>) chunkTimingListener)
@@ -148,16 +200,18 @@ public class BillingBatch {
     public JdbcPagingItemReader<BillingSourceRow> billingSourceReader(
             DataSource dataSource,
             PagingQueryProvider queryProvider,
-            @Value("#{stepExecutionContext['lastId']}") String lastId,
+            @Value("#{stepExecutionContext['partition']}") Integer partition,
+            @Value("#{stepExecutionContext['gridSize']}") Integer gridSize,
             @Value("#{jobParameters['date']}") String dateParam) {
 
         // sql에서 이해하는 걸로 변경
         LocalDate usageDate = LocalDate.parse(dateParam);
         Map<String, Object> params = new HashMap<>();
         params.put("usageDate", Date.valueOf(usageDate));
-        if (lastId != null) {
-            params.put("lastId", lastId);
-        }
+
+        // 파티션 조건 파라미터
+        params.put("partition", partition);
+        params.put("gridSize", gridSize);
 
         return new JdbcPagingItemReaderBuilder<BillingSourceRow>()
                 .name("billingSourceReader")
@@ -191,7 +245,6 @@ public class BillingBatch {
     @Bean
     @StepScope
     public PagingQueryProvider pagingQueryProvider(
-            @Value("#{stepExecutionContext['lastId']}") String lastId,
             @Value("#{jobParameters['date']}") String dateParam) {
         PostgresPagingQueryProvider queryProvider = new PostgresPagingQueryProvider();
         queryProvider.setSelectClause("""
@@ -241,9 +294,17 @@ public class BillingBatch {
         ) t
     """);
 
-        if (lastId != null) {
-            queryProvider.setWhereClause("WHERE sort_id > :lastId");
-        }
+        /**
+         * 핵심: 파티션별로 "서로 다른 집합"을 처리하게 만드는 WHERE
+         *
+         * - sort_id(= public_info_id)가 String/UUID라면 hashtext를 사용
+         * - gridSize가 4이면 partition은 0~3
+         * - 같은 public_info_id는 항상 같은 partition으로 간다.
+         */
+        queryProvider.setWhereClause("""
+            WHERE mod(abs(hashtext(t.sort_id::text)), :gridSize) = :partition
+        """);
+
         queryProvider.setSortKeys(Map.of("sort_id", Order.ASCENDING));
 
         return queryProvider;
@@ -444,6 +505,7 @@ public class BillingBatch {
     }
 
     @Bean
+    @StepScope
     public ChunkTimingListener<BillingSourceRow, BillingWriteItem> chunkTimingListener() {
         return new ChunkTimingListener<>();
     }

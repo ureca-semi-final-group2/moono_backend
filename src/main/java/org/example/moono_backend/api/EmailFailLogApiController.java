@@ -58,11 +58,6 @@ public class EmailFailLogApiController {
     }
 
     @Data
-    static class UpdateEmailFailLogRequest {
-        private SmsSendStatus smsSendStatus;
-    }
-
-    @Data
     @AllArgsConstructor
     static class UpdateEmailFailLogResponse {
         private Long emailFailLogId;
