@@ -33,14 +33,13 @@ import org.springframework.stereotype.Component;
  */
 @Slf4j
 @Component
-@Profile("consumer")
 @RequiredArgsConstructor
 public class KafkaConsumerListener {
 
     // 컨벤션: queuing.{도메인}.{기능}.{액션} 형식
-    private static final String TOPIC_NAME = "sending-topic";
+    private static final String TOPIC_NAME = "queuing.billing.email.send";
     // 컨벤션: cg-{도메인}-{기능}-{액션} 형식 (cg = consumer group)
-    private static final String GROUP_ID = "group_id";
+    private static final String GROUP_ID = "cg-billing-email-send";
 
     private final BillingDispatchService billingDispatchService;
 
@@ -70,6 +69,7 @@ public class KafkaConsumerListener {
             // BillingDispatchService를 통해 실제 비즈니스 로직 처리
             billingDispatchService.process(messageDto);
             log.info("[Consumer] 청구서 발송 처리 성공. billingId: {}", billingId);
+            ack.acknowledge(); // 해당 코드가 없으면 다음 메세지로 넘어가지 못함.
 
         } catch (EmailSendException e) {
             // 이메일 발송 실패는 일시적 네트워크 오류 등으로 발생할 수 있음

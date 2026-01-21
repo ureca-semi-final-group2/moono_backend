@@ -23,32 +23,24 @@ public class LoyaltyDiscountService {
     /**
      * 장기 고객 할인 계산
      * 선택 약정 할인 가입 시에만 적용
-     *
-     * @param publicInfoId 사용자 ID
-     * @param baseFee 기본 요금
-     * @param hasSelectionContract 선택 약정 가입 여부
-     * @param now 현재 시각
-     * @return 장기 고객 할인 정보
      */
     public Optional<DiscountInfo> calculateLoyaltyDiscount(
-            String publicInfoId,
-            int baseFee,
-            boolean hasSelectionContract,
-            LocalDateTime now
+            Registration registration,
+            int baseFee
     ) {
         // 선택 약정 할인 미가입 시 장기 고객 할인 미적용
-        if (!hasSelectionContract) {
+        if (!registration.isContractYn()) {
             return Optional.empty();
         }
 
-        Registration registration = registrationRepository.findByPublicInfoId(publicInfoId);
         if (registration == null || registration.getRegisterDate() == null) {
-            log.warn("Registration not found or registerDate is null for publicInfoId: {}", publicInfoId);
+            log.warn("Registration not found or registerDate is null for publicInfoId");
             return Optional.empty();
         }
 
         // 가입일부터 현재까지 경과 일수 계산
         LocalDate registerDate = registration.getRegisterDate();
+        LocalDateTime now=LocalDateTime.now();
         long daysSinceRegistration = ChronoUnit.DAYS.between(registerDate, now.toLocalDate());
 
         // 해당하는 장기 고객 할인 등급 찾기
