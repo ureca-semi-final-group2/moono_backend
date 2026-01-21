@@ -34,13 +34,6 @@ public class BillingProducerMessageDto {
         private Long billingId; // 정합성 및 멱등성 체크용 ID
         private String billingMonth; // 청구 월 (예: "2026-01")
         private boolean isForced; // DND 무시 여부 (강제 발송 시)
-        
-        /**
-         * Kafka 전송 시점의 타임스탬프 (ISO-8601 형식)
-         * End-to-End 시간 측정을 위해 SendingItemWriter에서 설정
-         * 예: "2026-01-20T10:30:45.123Z"
-         */
-        private String sentTimestamp;
     }
 
     @Getter
