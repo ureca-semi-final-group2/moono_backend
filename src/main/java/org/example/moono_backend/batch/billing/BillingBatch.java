@@ -370,7 +370,7 @@ public class BillingBatch {
                     .map(o -> new Item(o.code(), o.chargeAmount()))
                     .toList();
 
-            BillingDetailsJson payload = new BillingDetailsJson(discountsJson, overagesJson);
+            BillingDetailsJson payload = new BillingDetailsJson(discountsJson, overagesJson,billingFee);
             String billingDetailsJson = objectMapper.writeValueAsString(payload);
 
             int overageChargeTotal = overageChargeInfos.stream()
