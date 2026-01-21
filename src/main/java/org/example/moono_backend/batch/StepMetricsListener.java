@@ -3,16 +3,19 @@ package org.example.moono_backend.batch;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+import org.example.moono_backend.monitoring.PerformanceLogger;
 import org.springframework.batch.core.ChunkListener;
 import org.springframework.batch.core.ExitStatus;
 import org.springframework.batch.core.StepExecution;
 import org.springframework.batch.core.StepExecutionListener;
 import org.springframework.batch.core.scope.context.ChunkContext;
+import org.springframework.beans.factory.annotation.Autowired;
 
 /*
 
  * Spring Batch가 기본 집계하는 read/write/skip/commit/rollback을 출력
  * - BatchMetrics(시간/카프카 성공실패)까지 합쳐 "성능 요약"을 남김
+ * - PerformanceLogger를 통해 JSON 형식의 배치 요약 통계 출력 (test/dev 환경만)
  * 
  * */
 @Slf4j
@@ -20,6 +23,11 @@ import org.springframework.batch.core.scope.context.ChunkContext;
 public class StepMetricsListener implements StepExecutionListener, ChunkListener {
 
     private final BatchMetrics batchMetrics;
+    
+    // 성능 측정용 (Optional - test/dev 환경에서만 Bean 등록됨)
+    @Autowired(required = false)
+    private PerformanceLogger performanceLogger;
+    
     private long stepStartMillis;
     private int chunkCount = 0; // 실시간 청크 카운팅용
 
@@ -90,6 +98,22 @@ public class StepMetricsListener implements StepExecutionListener, ChunkListener
         log.info("[BATCH] Kafka result success={} fail={}",
                 batchMetrics.kafkaSuccess.get(),
                 batchMetrics.kafkaFail.get());
+
+        // 배치 요약 통계를 JSON 로그로 출력 (test/dev 환경에서만)
+        if (performanceLogger != null) {
+            performanceLogger.logBatchSummary(
+                    stepExecution.getJobExecutionId(),
+                    stepExecution.getStepName(),
+                    read,
+                    write,
+                    elapsedMs,
+                    tps,
+                    batchMetrics
+            );
+            
+            // 배치 완료 후 메트릭 큐 초기화 (다음 배치를 위해)
+            batchMetrics.clearMetrics();
+        }
 
         return stepExecution.getExitStatus();
     }
