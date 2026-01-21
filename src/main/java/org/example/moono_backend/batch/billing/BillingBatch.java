@@ -370,11 +370,15 @@ public class BillingBatch {
                     .map(o -> new Item(o.code(), o.chargeAmount()))
                     .toList();
 
-            BillingDetailsJson payload = new BillingDetailsJson(discountsJson, overagesJson);
+            BillingDetailsJson payload = new BillingDetailsJson(discountsJson, overagesJson,billingFee);
             String billingDetailsJson = objectMapper.writeValueAsString(payload);
 
+            int overageChargeTotal = overageChargeInfos.stream()
+                .mapToInt(OverageChargeInfo::chargeAmount)
+                .sum();
+
             // 최종 청구 금액
-            int billingFeeResult = Math.max(0, billingFee - totalDiscount);
+            int billingFeeResult = Math.max(0, billingFee - totalDiscount+overageChargeTotal);
 
             Billing createdBilling = Billing.builder()
                     .id(IdGenerator.generate())
