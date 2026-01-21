@@ -66,11 +66,11 @@ public class BillingDispatchService {
     /**
      * 트랜잭션 내부에서 수행되는 DB 작업
      * 
-     * - Billing 조회 (DB 조회 1회)
-     * - 멱등성 확인 (COMPLETED 상태 체크 - 재시도 시 중복 발송 방지)
-     * - SEND_PENDING 상태 확인 (SEND_PENDING이 아니면 스킵)
+     * - Billing 조회 (금칙 시간 체크 및 상태 업데이트용)
      * - 금칙 시간 확인 및 상태 업데이트 (IN_QUIET_HOUR 또는 COMPLETED)
      * - DTO 변환 준비
+     * 
+     * 참고: Producer가 SEND_PENDING 상태만 발행하고 재시도도 없으므로 상태 체크 불필요
      * 
      * @param messageDto 메시지 DTO
      * @return 처리 결과 (이메일 발송 여부 및 DTO 포함)
@@ -79,40 +79,25 @@ public class BillingDispatchService {
     protected ProcessResult processInternal(BillingProducerMessageDto messageDto) {
         Long billingId = messageDto.getHeader().getBillingId();
 
-        // 1. Billing 조회 (DB 조회 1회)
+        // 1. Billing 조회 (금칙 시간 체크 및 상태 업데이트용)
         Billing billing = getBillingOrThrow(billingId);
-        SendStatus currentStatus = billing.getSendStatus();
 
-        // 2. 멱등성 확인: COMPLETED면 이미 처리됨 (재시도 시 중복 발송 방지)
-        if (currentStatus == SendStatus.COMPLETED) {
-            log.info("[Dispatch] 이미 처리된 청구서 (멱등성 보장). billingId: {}, status: {}", 
-                    billingId, currentStatus);
-            return ProcessResult.skip();
-        }
-
-        // 3. SEND_PENDING 상태 확인 - SEND_PENDING이 아니면 처리하지 않음
-        if (currentStatus != SendStatus.SEND_PENDING) {
-            log.info("[Dispatch] SEND_PENDING 상태가 아님. 처리 스킵. billingId: {}, currentStatus: {}", 
-                    billingId, currentStatus);
-            return ProcessResult.skip();
-        }
-
-        // 4. 강제 발송 확인
+        // 2. 강제 발송 확인
         boolean isForced = messageDto.getHeader().isForced();
 
-        // 5. 금칙 시간 확인 (강제 발송이 아닌 경우)
+        // 3. 금칙 시간 확인 (강제 발송이 아닌 경우)
         if (!isForced && checkQuietHours(messageDto, billing)) {
             log.info("[Dispatch] 금칙 시간으로 인해 발송 보류. billingId: {}", billingId);
             return ProcessResult.skip();
         }
 
-        // 6. rawDetails 파싱 및 변환 (json 문자열을 RawDetailsDto로 파싱)
+        // 4. rawDetails 파싱 및 변환 (json 문자열을 RawDetailsDto로 파싱)
         RawDetailsDto rawDetails = parseRawDetails(messageDto.getRawDetails(), billingId);
 
-        // 7. BillingProducerMessageDto를 BillingConsumerMessageDto로 변환
+        // 5. BillingProducerMessageDto를 BillingConsumerMessageDto로 변환
         BillingConsumerMessageDto dispatchDto = convertToBillingDispatchDto(messageDto, rawDetails);
 
-        // 8. 발송 완료 상태 업데이트 (트랜잭션 내부에서 커밋)
+        // 6. 발송 완료 상태 업데이트 (트랜잭션 내부에서 커밋)
         updateBillingStatus(billing, SendStatus.COMPLETED);
         log.info("[Dispatch] 청구서 상태 업데이트 완료 (SEND_PENDING → COMPLETED). billingId: {}", billingId);
 
