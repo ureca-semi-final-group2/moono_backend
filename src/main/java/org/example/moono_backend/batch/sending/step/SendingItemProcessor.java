@@ -19,7 +19,6 @@ import org.springframework.stereotype.Component;
 
 import lombok.RequiredArgsConstructor;
 
-@Component
 @RequiredArgsConstructor
 public class SendingItemProcessor implements ItemProcessor<Billing, BillingProducerMessageDto> {
 

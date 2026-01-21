@@ -30,6 +30,12 @@ public class MemberPreloadListener implements ItemReadListener<Billing>, ChunkLi
         preloadHolder.currentChunkIds.add(item.getPublicInfoId());
     }
 
+    @Override
+    public void afterChunk(ChunkContext chunkContext) {
+        // 청크가 끝난 직후에도 비워줌으로써 메모리 점유 시간을 최소화
+        preloadHolder.clear();
+    }
+
     // preloadHolder에 수집된 ID들로 미리 데이터 로드
     // processor 실행 전에 호출됨
     // 1000개의 userinfoid 에 대해 DB 에서 IN 절로 2번만 조회
