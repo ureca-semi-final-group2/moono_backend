@@ -18,7 +18,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalTime;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
@@ -67,8 +66,8 @@ public class BillingDispatchService {
     /**
      * 트랜잭션 내부에서 수행되는 DB 작업
      * 
-     * - 멱등성 확인 (COMPLETED 상태 체크)
-     * - Billing 조회
+     * - Billing 조회 (DB 조회 1회)
+     * - 멱등성 확인 (COMPLETED 상태 체크 - 재시도 시 중복 발송 방지)
      * - SEND_PENDING 상태 확인 (SEND_PENDING이 아니면 스킵)
      * - 금칙 시간 확인 및 상태 업데이트 (IN_QUIET_HOUR 또는 COMPLETED)
      * - DTO 변환 준비
@@ -80,18 +79,21 @@ public class BillingDispatchService {
     protected ProcessResult processInternal(BillingProducerMessageDto messageDto) {
         Long billingId = messageDto.getHeader().getBillingId();
 
-        // 1. 멱등성 확인 : 이미 completed이면 처리하지 않음 -> 중복 발송 방지
-        if (checkIdempotency(billingId)) {
+        // 1. Billing 조회 (DB 조회 1회)
+        Billing billing = getBillingOrThrow(billingId);
+        SendStatus currentStatus = billing.getSendStatus();
+
+        // 2. 멱등성 확인: COMPLETED면 이미 처리됨 (재시도 시 중복 발송 방지)
+        if (currentStatus == SendStatus.COMPLETED) {
+            log.info("[Dispatch] 이미 처리된 청구서 (멱등성 보장). billingId: {}, status: {}", 
+                    billingId, currentStatus);
             return ProcessResult.skip();
         }
 
-        // 2. Billing 조회
-        Billing billing = getBillingOrThrow(billingId);
-
         // 3. SEND_PENDING 상태 확인 - SEND_PENDING이 아니면 처리하지 않음
-        if (billing.getSendStatus() != SendStatus.SEND_PENDING) {
+        if (currentStatus != SendStatus.SEND_PENDING) {
             log.info("[Dispatch] SEND_PENDING 상태가 아님. 처리 스킵. billingId: {}, currentStatus: {}", 
-                    billingId, billing.getSendStatus());
+                    billingId, currentStatus);
             return ProcessResult.skip();
         }
 
@@ -172,35 +174,6 @@ public class BillingDispatchService {
         BillingConsumerMessageDto getDispatchDto() {
             return dispatchDto;
         }
-    }
-
-    /**
-     * 멱등성 확인
-     * 
-     * 이미 COMPLETED 상태인 청구서는 재처리하지 않습니다.
-     * 
-     * 참고: SEND_PENDING 상태 체크는 processInternal()에서 별도로 수행됩니다.
-     * 
-     * @param billingId 청구서 ID
-     * @return true: 이미 처리 완료됨, false: 처리 필요
-     */
-    private boolean checkIdempotency(Long billingId) {
-        Optional<Billing> billingOpt = billingRepository.findById(billingId);
-
-        if (billingOpt.isEmpty()) {
-            log.warn("[Dispatch] 청구서를 찾을 수 없음. billingId: {}", billingId);
-            return false;
-        }
-        Billing billing = billingOpt.get();
-        SendStatus currentStatus = billing.getSendStatus();
-        
-        // COMPLETED는 이미 처리 완료 (멱등성 보장)
-        boolean isCompleted = currentStatus == SendStatus.COMPLETED;
-
-        if (isCompleted) {
-            log.info("[Dispatch] 이미 처리된 청구서. billingId: {}, status: {}", billingId, currentStatus);
-        }
-        return isCompleted;
     }
 
     /**
