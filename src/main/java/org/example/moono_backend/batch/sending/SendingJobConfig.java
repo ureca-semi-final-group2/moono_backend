@@ -8,6 +8,7 @@ import java.util.Map;
 import org.example.moono_backend.batch.BatchMetrics;
 import org.example.moono_backend.batch.StepMetricsListener;
 import org.example.moono_backend.batch.sending.step.SendingItemProcessor;
+import org.example.moono_backend.batch.sending.step.SendingItemReader;
 import org.example.moono_backend.batch.sending.step.SendingItemWriter;
 import org.example.moono_backend.domain.Billing;
 import org.example.moono_backend.domain.SendStatus;
@@ -93,41 +94,6 @@ public class SendingJobConfig {
 
     @Bean
     @StepScope
-    public JpaPagingItemReader<Billing> sendingItemReader(
-            @Value("#{jobParameters['targetStatus']}") String sendstatus, // 전송 상태 CREATED or SEND_PENDING
-            @Value("#{jobParameters['targetDate']}") String dateStr) { // 2026 년 N월 1일
-
-        JpaPagingItemReader<Billing> reader = new JpaPagingItemReader<>();
-        reader.setEntityManagerFactory(entityManagerFactory);
-
-        // 발송 배치가 넣어준 날짜와 status 로 1차 필터링
-        // 즉 해당 월의 1일 건을 필터링 할 수 있다.
-
-        // = 대신 BETWEEN 사용 (시/분/초 차이 무시)
-        reader.setQueryString(
-                "SELECT b FROM Billing b " +
-                        "WHERE b.sendStatus = :status " +
-                        "AND b.billingDate BETWEEN :startDate AND :endDate " +
-                        "ORDER BY b.id ASC");
-
-        Map<String, Object> params = new HashMap<>();
-        params.put("status", SendStatus.valueOf(sendstatus));
-
-        // 시작 시간: 2026-01-01 00:00:00
-        LocalDateTime startDate = LocalDateTime.parse(dateStr).with(LocalTime.MIN);
-        // 종료 시간: 2026-01-01 23:59:59.999
-        LocalDateTime endDate = LocalDateTime.parse(dateStr).with(LocalTime.MAX);
-
-        params.put("startDate", startDate);
-        params.put("endDate", endDate);
-        reader.setParameterValues(params);
-        reader.setPageSize(CHUNK_SIZE);
-        reader.setName("sendingItemReader");
-        return reader;
-    }
-
-    @Bean
-    @StepScope
     public SendingItemProcessor sendingItemProcessor(
             BatchMetrics batchMetrics,
             PreloadHolder preloadHolder,
@@ -143,10 +109,20 @@ public class SendingJobConfig {
                 targetDay);
     }
 
+    @Bean
+    @StepScope
+    public JpaPagingItemReader<Billing> sendingItemReader(
+            @Value("#{jobParameters['targetStatus']}") String status,
+            @Value("#{jobParameters['targetDate']}") String dateStr) {
+
+        // 분리된 클래스를 생성하여 반환
+        return new SendingItemReader(entityManagerFactory, CHUNK_SIZE, status, dateStr);
+    }
+
     // Writer도 Bean으로 등록
     @Bean
     public SendingItemWriter sendingItemWriter(BatchMetrics batchMetrics) {
-        return new SendingItemWriter(kafkaTemplate, batchMetrics);
+        return new SendingItemWriter(kafkaTemplate, batchMetrics, billingRepository);
     }
 
 }
