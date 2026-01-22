@@ -313,13 +313,15 @@ public class BillingBatch {
     @Bean
     @StepScope
     public ItemProcessor<BillingSourceRow, BillingWriteItem> billingProcessor(
-            @Value("#{jobParameters['now']}") String nowParam,
+            @Value("#{jobParameters['date']}") String date,
             MemberPreloadListener memberPreloadListener,
             RegistrationPreloadListener registrationPreloadListener,
             AdditionalServicePreloadListener additionalServicePreloadListener,
             PlanDiscountService planDiscountService,
             ObjectMapper objectMapper) {
         LocalDateTime now = LocalDateTime.now();
+
+        LocalDateTime month = LocalDate.parse(date).atStartOfDay();
 
         return row -> {
             PlanCacheItem plan = PlanCache.INSTANCE.get(row.planId());
@@ -387,7 +389,7 @@ public class BillingBatch {
                     .billingFee(billingFeeResult)
                     .status(PayStatus.UNPAID)
                     .sendStatus(SendStatus.CREATED)
-                    .billingDate(now)
+                    .billingDate(month)
                     .paidDate(null)
                     .billingDetails(billingDetailsJson)
                     .build();
