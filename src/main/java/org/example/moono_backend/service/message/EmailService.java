@@ -145,6 +145,17 @@ public class EmailService {
             String subject = renderEmailSubject(dto);
             String body = renderEmailBody(dto);
 
+            // 요구사항: 이메일 발송 1초 delay
+            // 실제 외부 이메일 API 호출 시 응답 시간을 시뮬레이션
+            log.debug("[EmailService] 이메일 발송 API 호출 중... (1초 소요 예상)");
+            try {
+                Thread.sleep(1000); // 1초 대기
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                log.error("[EmailService] 이메일 발송 중단됨. billingId: {}", billingId, e);
+                throw EmailSendException.sendFailed(billingId, e);
+            }
+
             // TODO: 실제 이메일 발송 로직 구현
             // Mock 구현: 로깅만 수행
             log.info("[EmailService] 이메일 발송 완료 (MOCK). 수신자: {}, 제목: {}, 본문 길이: {} bytes, billingId: {}",
