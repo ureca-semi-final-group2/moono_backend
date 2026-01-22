@@ -2,6 +2,7 @@ package org.example.moono_backend.kafka.consumer;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.example.moono_backend.config.AppProfiles;
 import org.example.moono_backend.exception.EmailSendException;
 import org.example.moono_backend.kafka.producer.BillingProducerMessageDto;
 import org.example.moono_backend.service.message.BillingDispatchService;
@@ -34,7 +35,7 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-@Profile("consumer")
+@Profile(AppProfiles.CONSUMER)
 public class KafkaConsumerListener {
 
     // 컨벤션: queuing.{도메인}.{기능}.{액션} 형식

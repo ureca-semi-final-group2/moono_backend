@@ -19,6 +19,7 @@ import org.example.moono_backend.batch.billing.dto.BillingDetailsJson;
 import org.example.moono_backend.batch.billing.dto.BillingDetailsJson.Item;
 import org.example.moono_backend.batch.billing.dto.BillingSourceRow;
 import org.example.moono_backend.batch.billing.dto.BillingWriteItem;
+import org.example.moono_backend.config.AppProfiles;
 import org.example.moono_backend.domain.*;
 import org.example.moono_backend.domain.discount.DiscountEntity;
 import org.example.moono_backend.domain.member.MemberCredential;
@@ -77,7 +78,7 @@ import javax.sql.DataSource;
 @Configuration
 @RequiredArgsConstructor
 @Slf4j
-@Profile("billing-batch")
+@Profile(AppProfiles.BILLING_BATCH)
 public class BillingBatch {
 
     private final JobRepository jobRepository;

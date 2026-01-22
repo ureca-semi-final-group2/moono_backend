@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.example.moono_backend.config.AppProfiles;
 import org.example.moono_backend.domain.EmailFailLog;
 import org.example.moono_backend.domain.ParseStatus;
 import org.example.moono_backend.kafka.producer.BillingProducerMessageDto;
@@ -17,7 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-@Profile("consumer")
+@Profile(AppProfiles.CONSUMER)
 public class EmailSendDltConsumer {
 
     private final ObjectMapper objectMapper;

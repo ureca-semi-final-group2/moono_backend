@@ -10,6 +10,7 @@ import org.example.moono_backend.batch.StepMetricsListener;
 import org.example.moono_backend.batch.sending.step.SendingItemProcessor;
 import org.example.moono_backend.batch.sending.step.SendingItemReader;
 import org.example.moono_backend.batch.sending.step.SendingItemWriter;
+import org.example.moono_backend.config.AppProfiles;
 import org.example.moono_backend.domain.Billing;
 import org.example.moono_backend.domain.SendStatus;
 import org.example.moono_backend.dto.BatchBillingDto;
@@ -43,7 +44,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @Configuration
 @RequiredArgsConstructor
-@Profile("producer")
+@Profile(AppProfiles.PRODUCER)
 public class SendingJobConfig {
     private final JobRepository jobRepository;
     private final PlatformTransactionManager transactionManager;

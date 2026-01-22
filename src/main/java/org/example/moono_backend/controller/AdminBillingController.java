@@ -2,6 +2,7 @@ package org.example.moono_backend.controller;
 
 import java.time.LocalDate;
 
+import org.example.moono_backend.config.AppProfiles;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.JobParameters;
 import org.springframework.batch.core.JobParametersBuilder;
@@ -16,7 +17,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 
 @RestController
 @RequiredArgsConstructor
-@Profile("producer")
+@Profile(AppProfiles.PRODUCER)
 public class AdminBillingController {
     private final JobLauncher jobLauncher;
     private final Job sendingJob;

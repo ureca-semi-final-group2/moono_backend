@@ -2,6 +2,7 @@ package org.example.moono_backend.batch.sending;
 
 import java.time.LocalDate;
 
+import org.example.moono_backend.config.AppProfiles;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.JobParameters;
 import org.springframework.batch.core.JobParametersBuilder;
@@ -14,7 +15,7 @@ import lombok.RequiredArgsConstructor;
 
 @Component
 @RequiredArgsConstructor
-@Profile("producer")
+@Profile(AppProfiles.PRODUCER)
 public class SendBillingScheduler {
     private final JobLauncher jobLauncher;
     private final Job sendingJob;

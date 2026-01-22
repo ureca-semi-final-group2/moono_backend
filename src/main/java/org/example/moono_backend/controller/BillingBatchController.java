@@ -1,6 +1,7 @@
 package org.example.moono_backend.controller;
 
 import lombok.RequiredArgsConstructor;
+import org.example.moono_backend.config.AppProfiles;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.JobExecution;
 import org.springframework.batch.core.JobParameters;
@@ -19,7 +20,7 @@ import java.time.ZonedDateTime;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/batch")
-@Profile("billing-batch")
+@Profile(AppProfiles.BILLING_BATCH)
 public class BillingBatchController {
     private final JobLauncher jobLauncher;
     private final JobRegistry jobRegistry;
