@@ -9,18 +9,20 @@ import org.example.moono_backend.batch.sending.PreloadHolder;
 import org.example.moono_backend.domain.Billing;
 import org.example.moono_backend.domain.member.MemberCredential;
 import org.example.moono_backend.domain.member.UserDndPolicy;
+import org.example.moono_backend.dto.BatchBillingDto;
 import org.example.moono_backend.kafka.producer.BillingProducerMessageDto;
 import org.example.moono_backend.repository.MemberCredentialRepository;
 import org.example.moono_backend.repository.UserDndPolicyRepository;
 import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.item.ItemProcessor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.pulsar.PulsarProperties.Producer;
 import org.springframework.stereotype.Component;
 
 import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor
-public class SendingItemProcessor implements ItemProcessor<Billing, BillingProducerMessageDto> {
+public class SendingItemProcessor implements ItemProcessor<BatchBillingDto, BillingProducerMessageDto> {
 
     private final BatchMetrics metrics;
     private final PreloadHolder preloadHolder;
@@ -30,7 +32,7 @@ public class SendingItemProcessor implements ItemProcessor<Billing, BillingProdu
     private final Long targetDay;
 
     @Override
-    public BillingProducerMessageDto process(Billing billing) throws Exception {
+    public BillingProducerMessageDto process(BatchBillingDto billing) throws Exception {
         long startTime = System.nanoTime();
         boolean isForced = Boolean.parseBoolean(isForcedStr);
 
@@ -40,17 +42,19 @@ public class SendingItemProcessor implements ItemProcessor<Billing, BillingProdu
             }
 
             // 직접 DB 조회하지 않고 PreloadHolder 에서 미리 로드된 데이터 사용
-            MemberCredential member = preloadHolder.memberMap.get(billing.getPublicInfoId());
-            UserDndPolicy dnd = preloadHolder.dndMap.get(billing.getPublicInfoId());
+            MemberCredential member = preloadHolder.memberMap.get(billing.publicInfoId());
+            UserDndPolicy dnd = preloadHolder.dndMap.get(billing.publicInfoId());
+
+            // NPE 방지 먼저 - 데이터 무결성 보장
+            if (member == null || dnd == null) {
+                return null;
+            }
 
             // 유저 설정 발송일과 오늘 실행일이 다르면 이번 배치에서는 제외(null 반환) - 즉 여기서 15일 21일 발송일에 따른 건져가는 필터링
             // 실행
             if (dnd.getSendDay() != targetDay.intValue()) {
                 return null;
             }
-
-            if (member == null || dnd == null)
-                return null;
 
             return BillingProducerMessageDto.from(billing, member, dnd, isForced);
 

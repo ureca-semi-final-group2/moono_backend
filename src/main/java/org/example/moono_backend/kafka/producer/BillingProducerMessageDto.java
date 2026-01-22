@@ -3,6 +3,7 @@ package org.example.moono_backend.kafka.producer;
 import org.example.moono_backend.domain.Billing;
 import org.example.moono_backend.domain.member.MemberCredential;
 import org.example.moono_backend.domain.member.UserDndPolicy;
+import org.example.moono_backend.dto.BatchBillingDto;
 
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -62,13 +63,13 @@ public class BillingProducerMessageDto {
         private long usageFee; // 사용 요금 -- 수정
     }
 
-    public static BillingProducerMessageDto from(Billing billing, MemberCredential member, UserDndPolicy dnd,
+    public static BillingProducerMessageDto from(BatchBillingDto billing, MemberCredential member, UserDndPolicy dnd,
             boolean isForced) {
         return BillingProducerMessageDto.builder()
                 .header(Header.builder()
-                        .publicInfoId(billing.getPublicInfoId()) // 정합성 체크용
-                        .billingId(billing.getId())
-                        .billingMonth(billing.getBillingDate().toString())
+                        .publicInfoId(billing.publicInfoId()) // 정합성 체크용
+                        .billingId(billing.id())
+                        .billingMonth(billing.billingDate().toString())
                         .isForced(isForced) // DND 무시 여부 추가
                         .build())
                 .receiver(Receiver.builder()
@@ -80,10 +81,10 @@ public class BillingProducerMessageDto {
                         .dndEnd(dnd.getEndDndTime().toString())
                         .build())
                 .billingSummary(BillingSummary.builder()
-                        .totalAmount(billing.getBillingFee())
-                        .dueDate(billing.getBillingDate().plusDays(15).toString()) // 수정 예상
+                        .totalAmount(billing.billingFee())
+                        .dueDate(billing.billingDate().plusDays(15).toString()) // 수정 예상
                         .build())
-                .rawDetails(billing.getBillingDetails())
+                .rawDetails(billing.billingDetails())
                 .build();
     }
 }

@@ -33,7 +33,10 @@ public class SendBillingScheduler {
     @Scheduled(cron = "0 0 * 15,21 * *")
     public void runRetryBillingJob() throws Exception {
         LocalDate today = LocalDate.now();
+        // 배치가 돈 달 꺼내서 N월 1일 00:00 으로 만들어 놓음.
         String targetDate = today.withDayOfMonth(1).atStartOfDay().toString();
+
+        // targetDay = 15 or 21
         int targetDay = today.getDayOfMonth();
 
         execute("IN_QUIET_HOUR", false, targetDate, targetDay);

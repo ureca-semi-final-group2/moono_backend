@@ -29,15 +29,17 @@ public class SendingItemWriter implements ItemWriter<BillingProducerMessageDto> 
                 .toList();
         try {
             for (BillingProducerMessageDto messageDto : chunk.getItems()) {
+                // 주의) send 를 한다고 바로 브로커에 전달되는게 아니라
+                // 자바 메모리 안의 버커에 잠시 쌓인다.
                 kafkaTemplate.send("queuing.billing.email.send", messageDto);
             }
             // 청크 단위의 개별 쿼리 대신 IN 절 쿼리로 벌크 업데이트
-            log.info(">> 업데이트 대상 IDs: {}", billing_ids);
+            // log.info(">> 업데이트 대상 IDs: {}", billing_ids);
             billingRepository.updateStatusInBatch(billing_ids, SendStatus.SEND_PENDING);
             // billingRepository.updateSendStatus(messageDto.getHeader().getBillingId(),
             // endStatus.SEND_PENDING);
             // 테스트에서 컨슈머에게 전송이 완료된것을 확실하게 하기 위해 flush 호출
-            kafkaTemplate.flush();
+            // kafkaTemplate.flush();
 
         } finally {
             long elapsedNanos = System.nanoTime() - startTime;
