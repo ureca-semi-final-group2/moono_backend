@@ -1,5 +1,7 @@
 package org.example.moono_backend.kafka.producer;
 
+import org.example.moono_backend.config.AppProfiles;
+import org.springframework.context.annotation.Profile;
 import org.springframework.web.bind.annotation.RestController;
 
 import lombok.RequiredArgsConstructor;
@@ -13,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 
 @RestController
 @RequiredArgsConstructor
+@Profile(AppProfiles.PRODUCER)
 public class KafkaTestController {
 
     private final JobLauncher jobLauncher;

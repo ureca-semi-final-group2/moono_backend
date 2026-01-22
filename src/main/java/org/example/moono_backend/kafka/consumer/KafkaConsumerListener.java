@@ -4,12 +4,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.Builder;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.example.moono_backend.config.AppProfiles;
 import org.example.moono_backend.domain.EmailFailLog;
 import org.example.moono_backend.domain.ParseStatus;
 import org.example.moono_backend.exception.EmailSendException;
 import org.example.moono_backend.kafka.producer.BillingProducerMessageDto;
 import org.example.moono_backend.repository.EmailFailLogRepository;
 import org.example.moono_backend.service.message.BillingDispatchService;
+import org.springframework.context.annotation.Profile;
 import org.springframework.kafka.annotation.DltHandler;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.annotation.RetryableTopic;
@@ -25,7 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Kafka Consumer Listener
- *
+ * 
  * 역할: Kafka 토픽에서 청구서 발송 메시지를 수신하고 처리합니다.
  *
  * 처리 흐름:
@@ -47,6 +49,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Slf4j
 @Component
 @RequiredArgsConstructor
+@Profile(AppProfiles.CONSUMER)
 public class KafkaConsumerListener {
 
     // 컨벤션: queuing.{도메인}.{기능}.{액션} 형식

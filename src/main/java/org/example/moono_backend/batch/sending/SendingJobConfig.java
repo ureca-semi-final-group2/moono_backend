@@ -10,6 +10,7 @@ import org.example.moono_backend.batch.StepMetricsListener;
 import org.example.moono_backend.batch.sending.step.SendingItemProcessor;
 import org.example.moono_backend.batch.sending.step.SendingItemReader;
 import org.example.moono_backend.batch.sending.step.SendingItemWriter;
+import org.example.moono_backend.config.AppProfiles;
 import org.example.moono_backend.domain.Billing;
 import org.example.moono_backend.domain.SendStatus;
 import org.example.moono_backend.dto.BatchBillingDto;
@@ -31,6 +32,7 @@ import org.springframework.batch.item.database.JpaPagingItemReader;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.transaction.PlatformTransactionManager;
 
@@ -42,6 +44,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @Configuration
 @RequiredArgsConstructor
+@Profile(AppProfiles.PRODUCER)
 public class SendingJobConfig {
     private final JobRepository jobRepository;
     private final PlatformTransactionManager transactionManager;

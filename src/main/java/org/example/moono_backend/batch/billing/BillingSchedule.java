@@ -2,11 +2,13 @@ package org.example.moono_backend.batch.billing;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.example.moono_backend.config.AppProfiles;
 import org.springframework.batch.core.JobParameters;
 import org.springframework.batch.core.JobParametersBuilder;
 import org.springframework.batch.core.configuration.JobRegistry;
 import org.springframework.batch.core.launch.JobLauncher;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
 import org.springframework.scheduling.annotation.Scheduled;
 
 import java.text.SimpleDateFormat;
@@ -15,6 +17,7 @@ import java.util.Date;
 @Configuration
 @RequiredArgsConstructor
 @Slf4j
+@Profile(AppProfiles.BILLING_BATCH)
 public class BillingSchedule {
     private final JobLauncher jobLauncher;
     private final JobRegistry jobRegistry;
