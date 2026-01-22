@@ -7,6 +7,7 @@ import org.springframework.batch.core.JobParameters;
 import org.springframework.batch.core.JobParametersBuilder;
 import org.springframework.batch.core.configuration.JobRegistry;
 import org.springframework.batch.core.launch.JobLauncher;
+import org.springframework.context.annotation.Profile;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -18,6 +19,7 @@ import java.time.ZonedDateTime;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/batch")
+@Profile("billing-batch")
 public class BillingBatchController {
     private final JobLauncher jobLauncher;
     private final JobRegistry jobRegistry;

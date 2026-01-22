@@ -58,6 +58,7 @@ import org.springframework.batch.item.support.CompositeItemWriter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.dao.CannotAcquireLockException;
 import org.springframework.dao.QueryTimeoutException;
@@ -76,6 +77,7 @@ import javax.sql.DataSource;
 @Configuration
 @RequiredArgsConstructor
 @Slf4j
+@Profile("billing-batch")
 public class BillingBatch {
 
     private final JobRepository jobRepository;

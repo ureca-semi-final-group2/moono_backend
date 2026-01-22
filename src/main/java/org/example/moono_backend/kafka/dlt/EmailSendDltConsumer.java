@@ -8,6 +8,7 @@ import org.example.moono_backend.domain.EmailFailLog;
 import org.example.moono_backend.domain.ParseStatus;
 import org.example.moono_backend.kafka.producer.BillingProducerMessageDto;
 import org.example.moono_backend.repository.EmailFailLogRepository;
+import org.springframework.context.annotation.Profile;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.stereotype.Service;
@@ -16,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Slf4j
 @Service
 @RequiredArgsConstructor
+@Profile("consumer")
 public class EmailSendDltConsumer {
 
     private final ObjectMapper objectMapper;

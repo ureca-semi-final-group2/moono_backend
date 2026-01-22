@@ -34,6 +34,7 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @Component
 @RequiredArgsConstructor
+@Profile("consumer")
 public class KafkaConsumerListener {
 
     // 컨벤션: queuing.{도메인}.{기능}.{액션} 형식
