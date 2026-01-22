@@ -53,4 +53,8 @@ public class Billing {
         this.sendStatus = SendStatus.IN_QUIET_HOUR;
     }
 
+    public void markAsFailed() {
+        this.sendStatus = SendStatus.FAILED;
+    }
+
 }

@@ -39,13 +39,15 @@ public class BillingDispatchService {
      * 트랜잭션 관리:
      * - DB 업데이트는 트랜잭션 내부에서 처리
      * - 이메일 발송은 트랜잭션 외부에서 처리 (외부 API 호출)
+     * - 성공 시: COMPLETED로 업데이트
+     * - 실패 시: FAILED로 업데이트 후 DLT로 전달
      */
     public void process(BillingProducerMessageDto messageDto) throws EmailSendException {
         Long billingId = messageDto.getHeader().getBillingId();
         log.info("[Dispatch] 청구서 발송 처리 시작. billingId: {}", billingId);
 
         try {
-            // 트랜잭션 내부: DB 조회 및 상태 업데이트
+            // 트랜잭션 1: DB 조회 및 DTO 변환 (상태 업데이트 하지 않음)
             ProcessResult result = processInternal(messageDto);
 
             // 트랜잭션 외부: 이메일 발송 (외부 API 호출)
@@ -53,12 +55,18 @@ public class BillingDispatchService {
                 sendEmailAfterTransaction(result.getDispatchDto(), billingId);
             }
 
+            // 트랜잭션 2: 이메일 발송 성공 시 COMPLETED로 업데이트
+            updateStatusToCompleted(billingId);
+            log.info("[Dispatch] 청구서 발송 처리 완료. billingId: {}", billingId);
+
         } catch (EmailSendException e) {
-            // 이메일 발송 실패는 그대로 전파하여 Consumer가 재시도하도록 함
-            log.error("[Dispatch] 이메일 발송 실패. billingId: {}", billingId, e);
-            throw e;
+            // 트랜잭션 3: 이메일 발송 실패 시 FAILED로 업데이트 후 DLT로 전달
+            log.error("[Dispatch] 이메일 발송 실패. FAILED로 업데이트 후 DLT로 전달. billingId: {}", billingId, e);
+            updateStatusToFailed(billingId);
+            throw e;  // DLT로 전달
         } catch (Exception e) {
-            log.error("[Dispatch] 청구서 발송 처리 중 예상치 못한 오류. billingId: {}", billingId, e);
+            log.error("[Dispatch] 청구서 발송 처리 중 예상치 못한 오류. FAILED로 업데이트. billingId: {}", billingId, e);
+            updateStatusToFailed(billingId);
             throw EmailSendException.sendFailed(billingId != null ? billingId.toString() : null, e);
         }
     }
@@ -66,11 +74,12 @@ public class BillingDispatchService {
     /**
      * 트랜잭션 내부에서 수행되는 DB 작업
      * 
-     * - Billing 조회 (금칙 시간 체크 및 상태 업데이트용)
-     * - 금칙 시간 확인 및 상태 업데이트 (IN_QUIET_HOUR 또는 COMPLETED)
+     * - Billing 조회 (금칙 시간 체크용)
+     * - 금칙 시간 확인 및 상태 업데이트 (IN_QUIET_HOUR인 경우만)
      * - DTO 변환 준비
      * 
      * 참고: Producer가 SEND_PENDING 상태만 발행하고 재시도도 없으므로 상태 체크 불필요
+     * 참고: COMPLETED/FAILED 상태 업데이트는 이메일 발송 성공/실패 후에 별도로 처리
      * 
      * @param messageDto 메시지 DTO
      * @return 처리 결과 (이메일 발송 여부 및 DTO 포함)
@@ -79,7 +88,7 @@ public class BillingDispatchService {
     protected ProcessResult processInternal(BillingProducerMessageDto messageDto) {
         Long billingId = messageDto.getHeader().getBillingId();
 
-        // 1. Billing 조회 (금칙 시간 체크 및 상태 업데이트용)
+        // 1. Billing 조회 (금칙 시간 체크용)
         Billing billing = getBillingOrThrow(billingId);
 
         // 2. 강제 발송 확인
@@ -97,9 +106,10 @@ public class BillingDispatchService {
         // 5. BillingProducerMessageDto를 BillingConsumerMessageDto로 변환
         BillingConsumerMessageDto dispatchDto = convertToBillingDispatchDto(messageDto, rawDetails);
 
-        // 6. 발송 완료 상태 업데이트 (트랜잭션 내부에서 커밋)
-        updateBillingStatus(billing, SendStatus.COMPLETED);
-        log.info("[Dispatch] 청구서 상태 업데이트 완료 (SEND_PENDING → COMPLETED). billingId: {}", billingId);
+        // 참고: 상태 업데이트는 이메일 발송 성공/실패 후에 처리
+        // - 성공: updateStatusToCompleted()
+        // - 실패: updateStatusToFailed()
+        log.info("[Dispatch] DTO 변환 완료. 이메일 발송 준비. billingId: {}", billingId);
 
         return ProcessResult.send(dispatchDto);
     }
@@ -108,7 +118,6 @@ public class BillingDispatchService {
      * 트랜잭션 외부에서 수행되는 이메일 발송
      * 
      * 외부 API 호출이므로 트랜잭션과 분리하여 처리합니다.
-     * DB 업데이트가 커밋된 후에 이메일을 발송합니다.
      * 
      * @param dispatchDto 이메일 발송용 DTO
      * @param billingId   청구서 ID
@@ -129,7 +138,7 @@ public class BillingDispatchService {
         }
 
         emailService.sendBillingEmail(dispatchDto);
-        log.info("[Dispatch] 청구서 발송 처리 완료. billingId: {}", billingId);
+        log.info("[Dispatch] 이메일 발송 성공. billingId: {}", billingId);
     }
 
     /**
@@ -246,13 +255,52 @@ public class BillingDispatchService {
                 billing.completeSend();
             } else if (sendStatus == SendStatus.IN_QUIET_HOUR) {
                 billing.markAsInQuietHour();
+            } else if (sendStatus == SendStatus.FAILED) {
+                billing.markAsFailed();
             }
             billingRepository.save(billing);
         } catch (Exception e) {
             log.error("상태 업데이트 실패: billingId={}", billing.getId(), e);
             throw new RuntimeException("Billing status update failed", e);
         }
+    }
 
+    /**
+     * 이메일 발송 성공 시 COMPLETED 상태로 업데이트
+     * 
+     * @param billingId 청구서 ID
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    protected void updateStatusToCompleted(Long billingId) {
+        try {
+            Billing billing = getBillingOrThrow(billingId);
+            billing.completeSend();
+            billingRepository.save(billing);
+            log.info("[Dispatch] 청구서 상태 업데이트 완료 (SEND_PENDING → COMPLETED). billingId: {}", billingId);
+        } catch (Exception e) {
+            log.error("[Dispatch] COMPLETED 상태 업데이트 실패. billingId: {}", billingId, e);
+            // 이메일은 이미 발송되었으므로 예외를 던지지 않음 (로깅만)
+        }
+    }
+
+    /**
+     * 이메일 발송 실패 시 FAILED 상태로 업데이트
+     * 
+     * DLT로 넘어가기 전에 반드시 호출되어야 함
+     * 
+     * @param billingId 청구서 ID
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    protected void updateStatusToFailed(Long billingId) {
+        try {
+            Billing billing = getBillingOrThrow(billingId);
+            billing.markAsFailed();
+            billingRepository.save(billing);
+            log.info("[Dispatch] 청구서 상태 업데이트 완료 (SEND_PENDING → FAILED). billingId: {}", billingId);
+        } catch (Exception e) {
+            log.error("[Dispatch] FAILED 상태 업데이트 실패. billingId: {}", billingId, e);
+            // 상태 업데이트 실패해도 DLT로는 전달되어야 하므로 예외를 던지지 않음 (로깅만)
+        }
     }
 
     /**
