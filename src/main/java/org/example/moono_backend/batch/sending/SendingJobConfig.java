@@ -12,6 +12,7 @@ import org.example.moono_backend.batch.sending.step.SendingItemReader;
 import org.example.moono_backend.batch.sending.step.SendingItemWriter;
 import org.example.moono_backend.domain.Billing;
 import org.example.moono_backend.domain.SendStatus;
+import org.example.moono_backend.dto.BatchBillingDto;
 import org.example.moono_backend.kafka.producer.BillingProducerMessageDto;
 import org.example.moono_backend.repository.BillingRepository;
 import org.example.moono_backend.repository.MemberCredentialRepository;
@@ -25,6 +26,7 @@ import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.core.job.builder.JobBuilder;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.builder.StepBuilder;
+import org.springframework.batch.item.database.JdbcPagingItemReader;
 import org.springframework.batch.item.database.JpaPagingItemReader;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -32,7 +34,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.transaction.PlatformTransactionManager;
 
-import jakarta.persistence.EntityManagerFactory;
+import javax.sql.DataSource;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -43,15 +45,16 @@ import lombok.extern.slf4j.Slf4j;
 public class SendingJobConfig {
     private final JobRepository jobRepository;
     private final PlatformTransactionManager transactionManager;
-    private final EntityManagerFactory entityManagerFactory;
+    // private final EntityManagerFactory entityManagerFactory;
     private final KafkaTemplate<String, BillingProducerMessageDto> kafkaTemplate;
     private final MemberPreloadListener sendingMemberPreloadListener;
+    private final DataSource dataSource;
     private final BillingRepository billingRepository; // 상태값 업데이트(cREATED or IN_QUIET_HOUR ->SEND_PENDING)
 
     private static final int CHUNK_SIZE = 1000;
 
-    private final MemberCredentialRepository memberCredentialRepository;
-    private final UserDndPolicyRepository dndRepository;
+    // private final MemberCredentialRepository memberCredentialRepository;
+    // private final UserDndPolicyRepository dndRepository;
 
     /** 배치 1회 실행 동안 성능/성공실패를 누적할 계산용 메트릭 */
     @Bean
@@ -75,17 +78,17 @@ public class SendingJobConfig {
     @Bean
     public Step sendingStep(BatchMetrics batchMetrics,
             StepMetricsListener stepMetricsListener,
-            JpaPagingItemReader<Billing> sendingItemReader,
+            JdbcPagingItemReader<BatchBillingDto> sendingItemReader,
             SendingItemProcessor sendingItemProcessor, // 수정: Bean으로 주입받음
             SendingItemWriter sendingItemWriter, // 수정: Bean으로 주입받음
             MemberPreloadListener sendingMemberPreloadListener // MemberPreloadListener 주입
     ) {
         return new StepBuilder("sendingStep", jobRepository)
-                .<Billing, BillingProducerMessageDto>chunk(CHUNK_SIZE, transactionManager)
+                .<BatchBillingDto, BillingProducerMessageDto>chunk(CHUNK_SIZE, transactionManager)
                 .reader(sendingItemReader)
                 .processor(sendingItemProcessor)
                 .writer(sendingItemWriter)
-                .listener((ItemReadListener<? super Billing>) sendingMemberPreloadListener)
+                .listener((ItemReadListener<? super BatchBillingDto>) sendingMemberPreloadListener)
                 .listener((ChunkListener) sendingMemberPreloadListener)
                 .listener((StepExecutionListener) stepMetricsListener) // sendingStep 을 실행할때 자동으로 step 전 후 에 호출
                 .listener((ChunkListener) stepMetricsListener)
@@ -111,12 +114,12 @@ public class SendingJobConfig {
 
     @Bean
     @StepScope
-    public JpaPagingItemReader<Billing> sendingItemReader(
+    public JdbcPagingItemReader<BatchBillingDto> sendingItemReader(
             @Value("#{jobParameters['targetStatus']}") String status,
-            @Value("#{jobParameters['targetDate']}") String dateStr) {
+            @Value("#{jobParameters['targetDate']}") String dateStr) throws Exception {
 
         // 분리된 클래스를 생성하여 반환
-        return new SendingItemReader(entityManagerFactory, CHUNK_SIZE, status, dateStr);
+        return new SendingItemReader(dataSource, CHUNK_SIZE, status, dateStr);
     }
 
     // Writer도 Bean으로 등록
