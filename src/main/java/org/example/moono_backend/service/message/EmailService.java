@@ -7,7 +7,9 @@ import com.github.jknack.handlebars.io.ClassPathTemplateLoader;
 import com.github.jknack.handlebars.io.TemplateLoader;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
+import org.example.moono_backend.exception.BaseException;
 import org.example.moono_backend.exception.EmailSendException;
+import org.example.moono_backend.exception.ErrorCode;
 import org.example.moono_backend.exception.TemplateRenderException;
 import org.example.moono_backend.kafka.consumer.BillingConsumerMessageDto;
 import org.example.moono_backend.utils.CryptoUtil;
@@ -182,6 +184,9 @@ public class EmailService {
         } catch (EmailSendException e) {
             // 이미 EmailSendException이면 그대로 전파
             throw e;
+        } catch (BaseException e) {
+            // BaseException (복호화 실패 등)은 그대로 전파
+            throw e;
         } catch (Exception e) {
             log.error("[EmailService] 이메일 발송 실패. billingId: {}", billingId, e);
             throw EmailSendException.sendFailed(billingId, e);
@@ -196,28 +201,37 @@ public class EmailService {
      * 
      * @param dto 암호화된 BillingConsumerMessageDto
      * @return 복호화된 BillingConsumerMessageDto
+     * @throws BaseException 복호화 실패 시 EMAIL_DECRYPTION_FAILED
      */
     private BillingConsumerMessageDto decryptReceiverInfo(BillingConsumerMessageDto dto) {
-        BillingConsumerMessageDto decrypted = new BillingConsumerMessageDto();
+        String billingId = extractBillingId(dto);
+        
+        try {
+            BillingConsumerMessageDto decrypted = new BillingConsumerMessageDto();
 
-        // Header 복사 (암호화되지 않음)
-        decrypted.setHeader(dto.getHeader());
+            // Header 복사 (암호화되지 않음)
+            decrypted.setHeader(dto.getHeader());
 
-        // BillingSummary 복사 (암호화되지 않음)
-        decrypted.setBillingSummary(dto.getBillingSummary());
+            // BillingSummary 복사 (암호화되지 않음)
+            decrypted.setBillingSummary(dto.getBillingSummary());
 
-        // Details 복사 (암호화되지 않음)
-        decrypted.setDetails(dto.getDetails());
+            // Details 복사 (암호화되지 않음)
+            decrypted.setDetails(dto.getDetails());
 
-        // Receiver 복호화
-        BillingConsumerMessageDto.Receiver receiver = new BillingConsumerMessageDto.Receiver();
-        receiver.setName(cryptoUtil.decrypt(dto.getReceiver().getName()));
-        receiver.setEmail(cryptoUtil.decrypt(dto.getReceiver().getEmail()));
-        receiver.setPhone(cryptoUtil.decrypt(dto.getReceiver().getPhone()));
-        decrypted.setReceiver(receiver);
+            // Receiver 복호화
+            BillingConsumerMessageDto.Receiver receiver = new BillingConsumerMessageDto.Receiver();
+            receiver.setName(cryptoUtil.decrypt(dto.getReceiver().getName()));
+            receiver.setEmail(cryptoUtil.decrypt(dto.getReceiver().getEmail()));
+            receiver.setPhone(cryptoUtil.decrypt(dto.getReceiver().getPhone()));
+            decrypted.setReceiver(receiver);
 
-        log.debug("[EmailService] Receiver 정보 복호화 완료. billingId: {}", extractBillingId(dto));
-        return decrypted;
+            log.debug("[EmailService] Receiver 정보 복호화 완료. billingId: {}", billingId);
+            return decrypted;
+            
+        } catch (Exception e) {
+            log.error("[EmailService] Receiver 정보 복호화 실패. billingId: {}", billingId, e);
+            throw new BaseException(ErrorCode.EMAIL_DECRYPTION_FAILED);
+        }
     }
 
     /**
