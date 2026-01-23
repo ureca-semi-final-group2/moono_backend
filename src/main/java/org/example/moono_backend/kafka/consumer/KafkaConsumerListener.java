@@ -7,6 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.example.moono_backend.config.AppProfiles;
 import org.example.moono_backend.domain.EmailFailLog;
 import org.example.moono_backend.domain.ParseStatus;
+import org.example.moono_backend.exception.BaseException;
 import org.example.moono_backend.exception.EmailSendException;
 import org.example.moono_backend.kafka.producer.BillingProducerMessageDto;
 import org.example.moono_backend.repository.EmailFailLogRepository;
@@ -40,8 +41,9 @@ import java.util.concurrent.Executor;
  * 3. 성공/실패에 따라 로깅 및 예외 처리
  *
  * 에러 처리:
- * - 이메일 발송 실패: 재시도 후 DLT로 전송
- * - 기타 예외: 재시도 후 DLT로 전송
+ * - 이메일 발송 실패 (EmailSendException): DLT로 전송
+ * - 복호화 실패 (BaseException): DLT로 전송
+ * - 기타 예외: DLT로 전송
  *
  * @Profile("consumer"): consumer 프로파일이 활성화된 경우에만 동작
  * - 이유: 배치 작업과 Consumer를 분리하여 운영 환경에서 선택적으로 활성화
@@ -100,11 +102,19 @@ public class KafkaConsumerListener {
                 log.info("[Consumer] 비동기 처리 완료. ack 호출. billingId: {}", billingId);
                 ack.acknowledge();
             } catch (EmailSendException e) {
-                log.warn("[Consumer] 이메일 발송 실패. billingId: {}", billingId);
+                log.warn("[Consumer] 이메일 발송 실패. DLT 전송. billingId: {}", billingId);
+                kafkaTemplate.send(DLT_TOPIC, messageDto);
+                ack.acknowledge();
+            } catch (BaseException e) {
+                // 복호화 실패(EMAIL_DECRYPTION_FAILED, SMS_DECRYPTION_FAILED 등) 포함
+                log.error("[Consumer] 비즈니스 로직 오류. DLT 전송. errorCode: {}, billingId: {}", 
+                        e.getErrorCode().getCode(), billingId, e);
                 kafkaTemplate.send(DLT_TOPIC, messageDto);
                 ack.acknowledge();
             } catch (Exception e) {
-                log.error("[Consumer] 예상치 못한 오류. billingId: {}", billingId, e);
+                log.error("[Consumer] 예상치 못한 오류. DLT 전송. billingId: {}", billingId, e);
+                kafkaTemplate.send(DLT_TOPIC, messageDto);
+                ack.acknowledge();
             }
         }, emailExecutor);
     }

@@ -49,6 +49,10 @@ dependencies {
     // Handlebars 템플릿 엔진 (이메일 템플릿 렌더링용)
     implementation 'com.github.jknack:handlebars:4.3.1'
 
+    // BouncyCastle for PGP decryption (PostgreSQL pgcrypto 호환)
+    implementation 'org.bouncycastle:bcprov-jdk18on:1.78.1'
+    implementation 'org.bouncycastle:bcpg-jdk18on:1.78.1'
+
 }
 
 tasks.named('test') {

@@ -25,6 +25,12 @@ public enum ErrorCode {
     EMAIL_SEND_FAILED("EMAIL_002", "이메일 발송에 실패했습니다.", ErrorType.ERROR),
     EMAIL_RETRY_FAILED("EMAIL_003", "이메일 재시도 발송에 실패했습니다.", ErrorType.ERROR),
     EMAIL_INVALID_RECIPIENT("EMAIL_004", "유효하지 않은 수신자 정보입니다.", ErrorType.WARNING),
+    EMAIL_DECRYPTION_FAILED("EMAIL_005", "수신자 정보 복호화에 실패했습니다.", ErrorType.ERROR),
+
+    // ========== SMS 발송 관련 ==========
+    SMS_SEND_FAILED("SMS_001", "SMS 발송에 실패했습니다.", ErrorType.ERROR),
+    SMS_INVALID_PHONE_NUMBER("SMS_002", "유효하지 않은 전화번호입니다.", ErrorType.WARNING),
+    SMS_DECRYPTION_FAILED("SMS_003", "전화번호 복호화에 실패했습니다.", ErrorType.ERROR),
 
     // ========== JSON 처리 관련 ==========
     JSON_PARSING_FAILED("JSON_001", "JSON 파싱에 실패했습니다.", ErrorType.ERROR),
