@@ -9,6 +9,7 @@ import org.example.moono_backend.batch.billing.listener.MemberPreloadListener;
 import org.example.moono_backend.batch.billing.listener.RegistrationPreloadListener;
 import org.example.moono_backend.batch.billing.dto.BillingSourceRow;
 import org.example.moono_backend.batch.billing.dto.BillingWriteItem;
+import org.example.moono_backend.config.AppProfiles;
 import org.springframework.batch.core.*;
 import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.core.job.builder.JobBuilder;
@@ -21,6 +22,7 @@ import org.springframework.batch.item.database.JdbcPagingItemReader;
 import org.springframework.batch.item.support.CompositeItemWriter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.dao.CannotAcquireLockException;
 import org.springframework.dao.QueryTimeoutException;
@@ -31,6 +33,7 @@ import org.springframework.transaction.PlatformTransactionManager;
 
 @Configuration
 @RequiredArgsConstructor
+@Profile(AppProfiles.BILLING_BATCH)
 @Slf4j
 public class JobConfig {
 
