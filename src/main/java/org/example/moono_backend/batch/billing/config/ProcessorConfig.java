@@ -1,6 +1,7 @@
 package org.example.moono_backend.batch.billing.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -44,7 +45,7 @@ public class ProcessorConfig {
     @Bean
     @StepScope
     public ItemProcessor<BillingSourceRow, BillingWriteItem> billingProcessor(
-            @Value("#{jobParameters['now']}") String nowParam,
+            @Value("#{jobParameters['date']}") String date,
             MemberPreloadListener memberPreloadListener,
             RegistrationPreloadListener registrationPreloadListener,
             AdditionalServicePreloadListener additionalServicePreloadListener,
