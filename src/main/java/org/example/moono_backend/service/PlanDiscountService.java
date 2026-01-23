@@ -32,7 +32,7 @@ public class PlanDiscountService {
 
         // 데이터 초과량
         if (!planCacheItem.isDataInfiniteYn()) {
-            int overData = calculateOverAmount(row.dataAmount(), basicMobileData);
+            int overData = calculateOverAmount(row.dataAmount(), basicMobileData*1024);
 
             if (overData > 0) {
                 int charge = overData * planCacheItem.getOverDataUnitFeePerMb();
