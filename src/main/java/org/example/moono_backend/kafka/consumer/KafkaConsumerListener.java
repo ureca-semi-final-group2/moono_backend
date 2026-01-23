@@ -15,6 +15,7 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.kafka.annotation.DltHandler;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.annotation.RetryableTopic;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.retrytopic.DltStrategy;
 import org.springframework.kafka.retrytopic.SameIntervalTopicReuseStrategy;
 import org.springframework.kafka.support.Acknowledgment;
@@ -24,6 +25,9 @@ import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.retry.annotation.Backoff;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 
 /**
  * Kafka Consumer Listener
@@ -61,6 +65,9 @@ public class KafkaConsumerListener {
     private final BillingDispatchService billingDispatchService;
     private final EmailFailLogRepository emailFailLogRepository;
     private final ObjectMapper objectMapper;
+    private final Executor emailExecutor;
+    private final KafkaTemplate<String, Object> kafkaTemplate;
+    private static final String DLT_TOPIC = "queuing.billing.email.send.dlt"; // 설정한 DLT 토픽명
 
     /**
      * Kafka 메시지 소비 및 처리
@@ -90,30 +97,20 @@ public class KafkaConsumerListener {
         Long billingId = extractBillingId(messageDto);
         log.info("[Consumer] 메시지 수신 시작. billingId: {}", billingId);
 
-        try {
-            // BillingDispatchService를 통해 실제 비즈니스 로직 처리
-            billingDispatchService.process(messageDto);
+        CompletableFuture.runAsync(() -> {
+            try {
+                billingDispatchService.process(messageDto);
 
-            log.info("[Consumer] 청구서 발송 처리 성공. billingId: {}", billingId);
-            ack.acknowledge(); // 해당 코드가 없으면 다음 메시지로 넘어가지 못함
-
-        } catch (EmailSendException e) {
-            // 이메일 발송 실패는 일시적 네트워크 오류 등으로 발생할 수 있음
-            // 따라서 재시도가 의미가 있음 (ErrorHandler가 재시도 처리)
-            log.warn("[Consumer] 이메일 발송 실패 (재시도 예정). billingId: {}, error: {}",
-                    billingId,
-                    e.getMessage()
-            );
-            throw e; // ErrorHandler가 재시도 처리
-
-        } catch (Exception e) {
-            // 예상치 못한 예외 (예: DB 연결 실패, NullPointerException 등)
-            log.error("[Consumer] 청구서 발송 처리 중 예상치 못한 오류. billingId: {}",
-                    billingId,
-                    e
-            );
-            throw new RuntimeException("청구서 발송 처리 실패", e);
-        }
+                log.info("[Consumer] 비동기 처리 완료. ack 호출. billingId: {}", billingId);
+                ack.acknowledge();
+            } catch (EmailSendException e) {
+                log.warn("[Consumer] 이메일 발송 실패. billingId: {}", billingId);
+                kafkaTemplate.send(DLT_TOPIC, messageDto);
+                ack.acknowledge();
+            } catch (Exception e) {
+                log.error("[Consumer] 예상치 못한 오류. billingId: {}", billingId, e);
+            }
+        }, emailExecutor);
     }
 
     /**
