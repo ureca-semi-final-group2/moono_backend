@@ -53,6 +53,7 @@ public class ProcessorConfig {
     ) {
         // nowParam은 현재 코드에서 미사용이라 두되, 필요 없으면 파라미터 제거 가능
         LocalDateTime now = LocalDateTime.now();
+        LocalDateTime month = LocalDate.parse(date).atStartOfDay();
 
         return row -> {
             PlanCacheItem plan = PlanCache.INSTANCE.get(row.planId());
@@ -117,7 +118,7 @@ public class ProcessorConfig {
                     .billingFee(billingFeeResult)
                     .status(PayStatus.UNPAID)
                     .sendStatus(SendStatus.CREATED)
-                    .billingDate(now)
+                    .billingDate(month)
                     .paidDate(null)
                     .billingDetails(billingDetailsJson)
                     .build();
