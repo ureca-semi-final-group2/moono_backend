@@ -28,49 +28,61 @@ public class KafkaTestController {
         return "단일 전송 시도: " + msg;
     }
 
+    /**
+     * 1. 정기 발송 테스트 (CREATED)
+     * 사용법: /send-batch?date=2026-03-01
+     * (date 파라미터가 없으면 기본값 2026-01-01 사용)
+     */
     @GetMapping("/send-batch")
-    public String sendBatch() throws Exception {
+    public String sendBatch(
+            @RequestParam(value = "date", defaultValue = "2026-01-01") String date) {
         try {
+            // 입력받은 날짜(yyyy-MM-dd) 뒤에 시간 포맷을 붙여줌
+            String formattedDate = date + "T00:00:00";
+
             JobParameters jobParameters = new JobParametersBuilder()
                     .addLong("time", System.currentTimeMillis())
-                    // 1. Reader용 파라미터
-                    .addString("targetStatus", "CREATED") // 혹은 "CREATED" (DB에 넣은 값)
-                    .addString("targetDate", "2026-01-01T00:00:00") // 반드시 이 포맷이어야 parse 가능
-                    // 2. Processor용 파라미터 (15일 혹은 21일 대상자 필터링)
-                    .addLong("targetDay", 15L)
-                    // 3. 기타 필요한 파라미터
+                    .addString("targetStatus", "CREATED")
+                    .addString("targetDate", formattedDate) // 동적으로 받은 날짜 적용
+                    .addLong("targetDay", 15L) // 기본값 15일
                     .addString("isForced", "false")
                     .toJobParameters();
 
             jobLauncher.run(sendingJob, jobParameters);
 
-            return "배치 작업이 성공적으로 시작되었습니다. (대상: 2026-01-01 / 15일자)";
+            return String.format("정기 발송 배치 시작 (날짜: %s, 상태: CREATED)", formattedDate);
         } catch (Exception e) {
             e.printStackTrace();
-            return "배치 작업 실행 중 오류가 발생했습니다: " + e.getMessage();
+            return "오류 발생: " + e.getMessage();
         }
     }
 
-    // retry-batch?day=15 또는 /retry-batch?day=21
+    /**
+     * 2. 재발송 테스트 (IN_QUIET_HOUR)
+     * 사용법: /retry-batch?day=21&date=2026-05-01
+     */
     @GetMapping("/retry-batch")
-    public String retryBatch(@RequestParam(value = "day", defaultValue = "15") Long targetDay) {
+    public String retryBatch(
+            @RequestParam(value = "day", defaultValue = "15") Long targetDay,
+            @RequestParam(value = "date", defaultValue = "2026-01-01") String date) {
         try {
+            // 입력받은 날짜(yyyy-MM-dd) 뒤에 시간 포맷을 붙여줌
+            String formattedDate = date + "T00:00:00";
+
             JobParameters jobParameters = new JobParametersBuilder()
                     .addLong("time", System.currentTimeMillis())
-                    // 핵심 변경 사항: Status를 IN_QUIET_HOUR로 설정
                     .addString("targetStatus", "IN_QUIET_HOUR")
-                    .addString("targetDate", "2026-01-01T00:00:00") // 테스트하려는 기준 월의 1일
-                    .addLong("targetDay", targetDay) // 파라미터로 받은 날짜 (15 or 21)
+                    .addString("targetDate", formattedDate) // 동적으로 받은 날짜 적용
+                    .addLong("targetDay", targetDay)
                     .addString("isForced", "false")
                     .toJobParameters();
 
             jobLauncher.run(sendingJob, jobParameters);
 
-            return "재발송 배치 작업이 시작되었습니다. (TargetStatus: IN_QUIET_HOUR, Day: " + targetDay + ")";
+            return String.format("재발송 배치 시작 (날짜: %s, 일자: %d, 상태: IN_QUIET_HOUR)", formattedDate, targetDay);
         } catch (Exception e) {
             e.printStackTrace();
-            return "재발송 실행 중 오류: " + e.getMessage();
+            return "오류 발생: " + e.getMessage();
         }
     }
-
 }
