@@ -76,7 +76,7 @@ public class EmailFailLogService {
             String phone = messageDto.getReceiver().getPhone();
             String decryptedPhone = cryptoUtil.isEncrypted(phone) ? cryptoUtil.decrypt(phone) : phone;
             
-            log.debug("[SMS-SEND] 전화번호 처리 완료 (암호화: {}). emailFailLogId={}", 
+            log.info("[SMS-SEND] 전화번호 처리 완료 (암호화: {}). emailFailLogId={}", 
                     cryptoUtil.isEncrypted(phone), id);
             
             // 3. SMS 발송 (Mock: 무조건 성공)

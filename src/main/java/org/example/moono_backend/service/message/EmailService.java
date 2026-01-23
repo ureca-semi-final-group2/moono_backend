@@ -232,7 +232,7 @@ public class EmailService {
             
             decrypted.setReceiver(receiver);
 
-            log.debug("[EmailService] Receiver 정보 처리 완료 (암호화: name={}, email={}, phone={}). billingId: {}", 
+            log.info("[EmailService] Receiver 정보 처리 완료 (암호화: name={}, email={}, phone={}). billingId: {}", 
                 cryptoUtil.isEncrypted(name), cryptoUtil.isEncrypted(email), cryptoUtil.isEncrypted(phone), billingId);
             return decrypted;
             
