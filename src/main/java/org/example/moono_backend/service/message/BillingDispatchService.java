@@ -63,7 +63,7 @@ public class BillingDispatchService {
             // 트랜잭션 3: 이메일 발송 실패 시 FAILED로 업데이트 후 DLT로 전달
             log.error("[Dispatch] 이메일 발송 실패. FAILED로 업데이트 후 DLT로 전달. billingId: {}", billingId, e);
             updateStatusToFailed(billingId);
-            throw e;  // DLT로 전달
+            throw e; // DLT로 전달
         } catch (Exception e) {
             log.error("[Dispatch] 청구서 발송 처리 중 예상치 못한 오류. FAILED로 업데이트. billingId: {}", billingId, e);
             updateStatusToFailed(billingId);

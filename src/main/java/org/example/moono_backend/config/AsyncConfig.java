@@ -15,7 +15,7 @@ public class AsyncConfig {
     public Executor emailExecutor() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
         executor.setCorePoolSize(50); // 기본 스레드 수
-        executor.setMaxPoolSize(100);  // 최대 스레드 수
+        executor.setMaxPoolSize(100); // 최대 스레드 수
         executor.setQueueCapacity(1000); // 대기 큐
         executor.setThreadNamePrefix("EmailWorker-");
 

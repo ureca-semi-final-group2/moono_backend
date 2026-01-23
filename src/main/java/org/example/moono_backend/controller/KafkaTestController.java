@@ -1,7 +1,5 @@
-package org.example.moono_backend.kafka.producer;
+package org.example.moono_backend.controller;
 
-import org.example.moono_backend.config.AppProfiles;
-import org.springframework.context.annotation.Profile;
 import org.springframework.web.bind.annotation.RestController;
 
 import lombok.RequiredArgsConstructor;
@@ -12,10 +10,12 @@ import org.springframework.batch.core.JobParametersBuilder;
 import org.springframework.batch.core.launch.JobLauncher;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.example.moono_backend.config.AppProfiles;
+import org.springframework.context.annotation.Profile;
 
+@Profile(AppProfiles.PRODUCER)
 @RestController
 @RequiredArgsConstructor
-@Profile(AppProfiles.PRODUCER)
 public class KafkaTestController {
 
     private final JobLauncher jobLauncher;
@@ -48,6 +48,28 @@ public class KafkaTestController {
         } catch (Exception e) {
             e.printStackTrace();
             return "배치 작업 실행 중 오류가 발생했습니다: " + e.getMessage();
+        }
+    }
+
+    // retry-batch?day=15 또는 /retry-batch?day=21
+    @GetMapping("/retry-batch")
+    public String retryBatch(@RequestParam(value = "day", defaultValue = "15") Long targetDay) {
+        try {
+            JobParameters jobParameters = new JobParametersBuilder()
+                    .addLong("time", System.currentTimeMillis())
+                    // 핵심 변경 사항: Status를 IN_QUIET_HOUR로 설정
+                    .addString("targetStatus", "IN_QUIET_HOUR")
+                    .addString("targetDate", "2026-01-01T00:00:00") // 테스트하려는 기준 월의 1일
+                    .addLong("targetDay", targetDay) // 파라미터로 받은 날짜 (15 or 21)
+                    .addString("isForced", "false")
+                    .toJobParameters();
+
+            jobLauncher.run(sendingJob, jobParameters);
+
+            return "재발송 배치 작업이 시작되었습니다. (TargetStatus: IN_QUIET_HOUR, Day: " + targetDay + ")";
+        } catch (Exception e) {
+            e.printStackTrace();
+            return "재발송 실행 중 오류: " + e.getMessage();
         }
     }
 
