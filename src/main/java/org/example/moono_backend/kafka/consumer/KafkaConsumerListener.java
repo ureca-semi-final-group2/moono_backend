@@ -82,20 +82,16 @@ public class KafkaConsumerListener {
      *                   2. 예외 발생 시: ErrorHandler가 재시도 및 DLT 전송 처리
      *
      *                   왜 예외를 다시 던지는가?
-     *                   - Spring Kafka의 ErrorHandler가 예외를 감지하여 재시도 및 DLT 전송을 처리하기 때문
+     *                   - Spring Kafka의 ErrorHandler가 예외를 감지하여 재시도 및 DLT 전송을 처리하기
+     *                   때문
      *                   - 여기서 예외를 잡아서 처리하면 ErrorHandler가 동작하지 않음
      */
     @KafkaListener(topics = TOPIC_NAME, groupId = GROUP_ID)
-    @RetryableTopic(
-            attempts = "1",
-            dltTopicSuffix = ".dlt",
-            exclude = { DeserializationException.class },
-            sameIntervalTopicReuseStrategy = SameIntervalTopicReuseStrategy.SINGLE_TOPIC,
-            dltStrategy = DltStrategy.FAIL_ON_ERROR
-    )
+    @RetryableTopic(attempts = "1", dltTopicSuffix = ".dlt", exclude = {
+            DeserializationException.class }, sameIntervalTopicReuseStrategy = SameIntervalTopicReuseStrategy.SINGLE_TOPIC, dltStrategy = DltStrategy.FAIL_ON_ERROR)
     public void consume(BillingProducerMessageDto messageDto, Acknowledgment ack) {
         Long billingId = extractBillingId(messageDto);
-        log.info("[Consumer] 메시지 수신 시작. billingId: {}", billingId);
+        log.info("[Consumer] 메시지 수신 - 비동기 처리 요청. billingId: {}", billingId);
 
         CompletableFuture.runAsync(() -> {
             try {
@@ -142,15 +138,13 @@ public class KafkaConsumerListener {
             BillingProducerMessageDto messageDto,
             Acknowledgment ack,
             @Header(KafkaHeaders.RECEIVED_TOPIC) String topic,
-            @Header(KafkaHeaders.OFFSET) Long offset
-    ) {
+            @Header(KafkaHeaders.OFFSET) Long offset) {
         String port = System.getProperty("server.port", "8080");
         log.info(
                 "[DLT-Handler-Port:{}] DLT 메시지 수신. Topic: {}, Offset: {}",
                 port,
                 topic,
-                offset
-        );
+                offset);
 
         if (messageDto == null || messageDto.getHeader() == null) {
             saveFailLog(null, null, ParseStatus.FAIL);
@@ -166,8 +160,7 @@ public class KafkaConsumerListener {
 
             log.info(
                     "[DLT] EmailFailLog 저장 완료. publicInfoId: {}",
-                    publicInfoId
-            );
+                    publicInfoId);
 
             // 성공적으로 DB에 저장된 경우에만 Ack
             ack.acknowledge();
@@ -176,8 +169,7 @@ public class KafkaConsumerListener {
             log.error(
                     "[DLT] DLT 처리 중 오류 발생. publicInfoId: {}",
                     publicInfoId,
-                    e
-            );
+                    e);
             // 여기서 ack를 호출하지 않으면 오프셋이 커밋되지 않아 나중에 재처리가 가능함
         }
     }

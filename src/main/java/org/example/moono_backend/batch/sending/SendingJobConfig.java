@@ -36,6 +36,8 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.transaction.PlatformTransactionManager;
 
+import io.micrometer.core.instrument.MeterRegistry;
+
 import javax.sql.DataSource;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -50,7 +52,6 @@ public class SendingJobConfig {
     private final PlatformTransactionManager transactionManager;
     // private final EntityManagerFactory entityManagerFactory;
     private final KafkaTemplate<String, BillingProducerMessageDto> kafkaTemplate;
-    private final MemberPreloadListener sendingMemberPreloadListener;
     private final DataSource dataSource;
     private final BillingRepository billingRepository; // 상태값 업데이트(cREATED or IN_QUIET_HOUR ->SEND_PENDING)
 
@@ -74,7 +75,8 @@ public class SendingJobConfig {
     @Bean
     public Job sendingJob(Step sendingStep) {
         return new JobBuilder("sendingJob", jobRepository)
-                .start(sendingStep)
+                .start(sendingStep) // 발송
+                // .next(recoveryStep) // 발송 실패된 로그건에 대한 재발송 배치 추가
                 .build();
     }
 
@@ -97,6 +99,10 @@ public class SendingJobConfig {
                 .listener((ChunkListener) stepMetricsListener)
                 .build();
     }
+
+    // 보정 배치 추가
+    // 에러 로그가 뜬 실패뎅이터 건 다시 재발송 해야함...
+    // 일단은 로그로 확인하고 재발송은 나중에 처리
 
     @Bean
     @StepScope
@@ -127,8 +133,7 @@ public class SendingJobConfig {
 
     // Writer도 Bean으로 등록
     @Bean
-    public SendingItemWriter sendingItemWriter(BatchMetrics batchMetrics) {
-        return new SendingItemWriter(kafkaTemplate, batchMetrics, billingRepository);
+    public SendingItemWriter sendingItemWriter(BatchMetrics batchMetrics, MeterRegistry meterRegistry) {
+        return new SendingItemWriter(kafkaTemplate, billingRepository, batchMetrics, meterRegistry);
     }
-
 }

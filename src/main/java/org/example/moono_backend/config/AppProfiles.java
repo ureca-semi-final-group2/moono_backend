@@ -5,5 +5,6 @@ public final class AppProfiles {
     public static final String PRODUCER = "producer";
     public static final String CONSUMER = "consumer";
 
-    private AppProfiles() {}
+    private AppProfiles() {
+    }
 }
