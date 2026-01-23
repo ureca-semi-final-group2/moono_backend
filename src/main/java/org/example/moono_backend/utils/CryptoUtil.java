@@ -64,6 +64,16 @@ public class CryptoUtil {
             Security.addProvider(new BouncyCastleProvider());
         }
     }
+    
+    @jakarta.annotation.PostConstruct
+    public void init() {
+        log.info("=".repeat(80));
+        log.info("[CryptoUtil] 초기화 완료");
+        log.info("[CryptoUtil] 복호화 활성화: {}", enabled);
+        log.info("[CryptoUtil] 시크릿 키 길이: {} bytes", secretKey != null ? secretKey.length() : 0);
+        log.info("[CryptoUtil] 시크릿 키 프리픽스: {}", secretKey != null && secretKey.length() > 10 ? secretKey.substring(0, 10) + "..." : "N/A");
+        log.info("=".repeat(80));
+    }
 
     /**
      * PostgreSQL pgp_sym_decrypt 호환 복호화
@@ -85,7 +95,8 @@ public class CryptoUtil {
         }
 
         try {
-            log.debug("[CryptoUtil] 복호화 시작. 데이터 길이: {}", encryptedData.length());
+            log.info("[CryptoUtil] 복호화 시작. 데이터 길이: {}, 키 길이: {}", 
+                encryptedData.length(), secretKey.length());
 
             // PostgreSQL bytea 형식 파싱
             byte[] encryptedBytes = parsePostgresByteA(encryptedData);
