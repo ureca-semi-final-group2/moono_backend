@@ -1,4 +1,4 @@
-package org.example.moono_backend.batch.billing;
+package org.example.moono_backend.batch.billing.listener;
 
 import lombok.RequiredArgsConstructor;
 import org.example.moono_backend.batch.billing.dto.BillingSourceRow;

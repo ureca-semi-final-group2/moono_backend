@@ -1,28 +1,25 @@
-package org.example.moono_backend.batch.billing;
+package org.example.moono_backend.batch.billing.listener;
 
 import lombok.RequiredArgsConstructor;
 import org.example.moono_backend.batch.billing.dto.BillingSourceRow;
-import org.example.moono_backend.domain.Registration;
-import org.example.moono_backend.repository.RegistrationRepository;
+import org.example.moono_backend.domain.member.MemberCredential;
+import org.example.moono_backend.repository.MemberCredentialRepository;
 import org.springframework.batch.core.ChunkListener;
 import org.springframework.batch.core.ItemReadListener;
 import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.core.scope.context.ChunkContext;
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
-@Component
+@Component("billingMemberPreloadListener") // 별명 부여
 @StepScope
 @RequiredArgsConstructor
-public class RegistrationPreloadListener implements ItemReadListener<BillingSourceRow>, ChunkListener {
-    private final RegistrationRepository registrationRepository;
+public class MemberPreloadListener implements ItemReadListener<BillingSourceRow>, ChunkListener {
+    private final MemberCredentialRepository memberCredentialRepository;
 
-    // publicInfoId를 키로 Registration저장하는 로컬 캐시
-    private final Map<String, Registration> cache = new HashMap<>();
+    // publicInfoId를 키로 MemberCredential을 저장하는 로컬 캐시
+    private final Map<String, MemberCredential> cache = new HashMap<>();
     private final List<String> publicInfoIds = new ArrayList<>();
 
     // 1. Reader가 읽을 때마다 publicInfoId를 수집
@@ -39,11 +36,11 @@ public class RegistrationPreloadListener implements ItemReadListener<BillingSour
     }
 
     // 3. Processor에서 캐시를 참조할 수 있도록 제공하는 메서드
-    public Registration getRegistration(String publicInfoId) {
+    public MemberCredential getMember(String publicInfoId) {
         // 만약 캐시가 비어있다면(첫 번째 process 호출 시), 수집된 ID로 한 번에 조회
         if (cache.isEmpty() && !publicInfoIds.isEmpty()) {
-            List<Registration> registrations = registrationRepository.findAllByPublicInfoIdIn(publicInfoIds);
-            registrations.forEach(r -> cache.put(r.getPublicInfoId(), r));
+            List<MemberCredential> members = memberCredentialRepository.findAllByPublicInfoIdIn(publicInfoIds);
+            members.forEach(m -> cache.put(m.getPublicInfoId(), m));
         }
         return cache.get(publicInfoId);
     }

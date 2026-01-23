@@ -1,4 +1,4 @@
-package org.example.moono_backend.service;
+package org.example.moono_backend.batch.billing.service;
 
 import java.util.ArrayList;
 import lombok.RequiredArgsConstructor;
