@@ -218,14 +218,22 @@ public class EmailService {
             // Details 복사 (암호화되지 않음)
             decrypted.setDetails(dto.getDetails());
 
-            // Receiver 복호화
+            // Receiver 복호화 (암호화된 경우만)
             BillingConsumerMessageDto.Receiver receiver = new BillingConsumerMessageDto.Receiver();
-            receiver.setName(cryptoUtil.decrypt(dto.getReceiver().getName()));
-            receiver.setEmail(cryptoUtil.decrypt(dto.getReceiver().getEmail()));
-            receiver.setPhone(cryptoUtil.decrypt(dto.getReceiver().getPhone()));
+            
+            String name = dto.getReceiver().getName();
+            String email = dto.getReceiver().getEmail();
+            String phone = dto.getReceiver().getPhone();
+            
+            // 암호화 여부 체크 후 복호화
+            receiver.setName(cryptoUtil.isEncrypted(name) ? cryptoUtil.decrypt(name) : name);
+            receiver.setEmail(cryptoUtil.isEncrypted(email) ? cryptoUtil.decrypt(email) : email);
+            receiver.setPhone(cryptoUtil.isEncrypted(phone) ? cryptoUtil.decrypt(phone) : phone);
+            
             decrypted.setReceiver(receiver);
 
-            log.debug("[EmailService] Receiver 정보 복호화 완료. billingId: {}", billingId);
+            log.debug("[EmailService] Receiver 정보 처리 완료 (암호화: name={}, email={}, phone={}). billingId: {}", 
+                cryptoUtil.isEncrypted(name), cryptoUtil.isEncrypted(email), cryptoUtil.isEncrypted(phone), billingId);
             return decrypted;
             
         } catch (Exception e) {

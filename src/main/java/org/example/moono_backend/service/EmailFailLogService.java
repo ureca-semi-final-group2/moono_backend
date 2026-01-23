@@ -72,9 +72,12 @@ public class EmailFailLogService {
                 BillingProducerMessageDto.class
             );
             
-            // 2. 전화번호 복호화 (SMS 발송 직전)
-            String encryptedPhone = messageDto.getReceiver().getPhone();
-            String decryptedPhone = cryptoUtil.decrypt(encryptedPhone);
+            // 2. 전화번호 복호화 (암호화된 경우만)
+            String phone = messageDto.getReceiver().getPhone();
+            String decryptedPhone = cryptoUtil.isEncrypted(phone) ? cryptoUtil.decrypt(phone) : phone;
+            
+            log.debug("[SMS-SEND] 전화번호 처리 완료 (암호화: {}). emailFailLogId={}", 
+                    cryptoUtil.isEncrypted(phone), id);
             
             // 3. SMS 발송 (Mock: 무조건 성공)
             log.info("[SMS-SEND][SUCCESS] SMS 발송 완료 (MOCK). 수신자: {}, emailFailLogId={}", 
