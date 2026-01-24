@@ -11,6 +11,8 @@ import org.example.moono_backend.exception.ErrorCode;
 import org.example.moono_backend.kafka.producer.BillingProducerMessageDto;
 import org.example.moono_backend.repository.EmailFailLogRepository;
 import org.example.moono_backend.utils.CryptoUtil;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -40,6 +42,84 @@ public class EmailFailLogService {
 
     public List<EmailFailLog> findSmsPendingTargets() {
         return emailFailLogRepository.findByParseStatusAndSmsStatus(ParseStatus.SUCCESS, SmsSendStatus.PENDING);
+    }
+    
+    /**
+     * 페이징 처리된 실패 내역 조회 (이름, 마스킹된 전화번호 포함)
+     * 
+     * @param pageable 페이징 정보
+     * @return 페이징 처리된 EmailFailLog (payload 파싱 포함)
+     */
+    public Page<EmailFailLogWithDetails> findFailureListWithPaging(Pageable pageable) {
+        Page<EmailFailLog> failLogs = emailFailLogRepository.findByParseStatusAndSmsStatus(
+            ParseStatus.SUCCESS, 
+            SmsSendStatus.PENDING, 
+            pageable
+        );
+        
+        return failLogs.map(emailFailLog -> {
+            try {
+                // payload 파싱
+                BillingProducerMessageDto messageDto = objectMapper.readValue(
+                    emailFailLog.getPayload(), 
+                    BillingProducerMessageDto.class
+                );
+                
+                // 전화번호 복호화 후 마스킹
+                String phone = messageDto.getReceiver().getPhone();
+                String decryptedPhone = cryptoUtil.isEncrypted(phone) ? cryptoUtil.decrypt(phone) : phone;
+                String maskedPhone = maskPhone(decryptedPhone);
+                
+                return new EmailFailLogWithDetails(
+                    emailFailLog.getId(),
+                    messageDto.getReceiver().getName(),
+                    maskedPhone,
+                    emailFailLog.getSmsStatus().name()
+                );
+                
+            } catch (Exception e) {
+                log.error("[FAILURE-LIST] payload 파싱 실패. emailFailLogId={}", emailFailLog.getId(), e);
+                // 파싱 실패 시 기본값 반환
+                return new EmailFailLogWithDetails(
+                    emailFailLog.getId(),
+                    "파싱 실패",
+                    "***-****-****",
+                    emailFailLog.getSmsStatus().name()
+                );
+            }
+        });
+    }
+    
+    /**
+     * 일괄 SMS 발송 (항상 성공 처리)
+     * 
+     * @return 발송 결과 통계
+     */
+    @Transactional
+    public BatchSmsResult sendBatchSms() {
+        List<EmailFailLog> pendingLogs = emailFailLogRepository.findByParseStatusAndSmsStatus(
+            ParseStatus.SUCCESS, 
+            SmsSendStatus.PENDING
+        );
+        
+        int successCount = 0;
+        int failedCount = 0;
+        
+        for (EmailFailLog emailFailLog : pendingLogs) {
+            try {
+                // SMS 발송 처리 (기존 update 로직 재사용)
+                update(emailFailLog.getId());
+                successCount++;
+            } catch (Exception e) {
+                log.error("[BATCH-SMS] SMS 발송 실패. emailFailLogId={}", emailFailLog.getId(), e);
+                failedCount++;
+            }
+        }
+        
+        log.info("[BATCH-SMS] 일괄 발송 완료. 성공: {}, 실패: {}, 전체: {}", 
+            successCount, failedCount, pendingLogs.size());
+        
+        return new BatchSmsResult(successCount, failedCount, pendingLogs.size());
     }
 
     public EmailFailLog findById(Long id) {
@@ -130,5 +210,46 @@ public class EmailFailLogService {
         } else {
             return "*******" + lastFour;
         }
+    }
+    
+    /**
+     * 실패 내역 상세 정보 (이름, 마스킹된 전화번호 포함)
+     */
+    public static class EmailFailLogWithDetails {
+        private final Long id;
+        private final String name;
+        private final String phoneNumber;
+        private final String status;
+        
+        public EmailFailLogWithDetails(Long id, String name, String phoneNumber, String status) {
+            this.id = id;
+            this.name = name;
+            this.phoneNumber = phoneNumber;
+            this.status = status;
+        }
+        
+        public Long getId() { return id; }
+        public String getName() { return name; }
+        public String getPhoneNumber() { return phoneNumber; }
+        public String getStatus() { return status; }
+    }
+    
+    /**
+     * 일괄 SMS 발송 결과
+     */
+    public static class BatchSmsResult {
+        private final int successCount;
+        private final int failedCount;
+        private final int totalProcessed;
+        
+        public BatchSmsResult(int successCount, int failedCount, int totalProcessed) {
+            this.successCount = successCount;
+            this.failedCount = failedCount;
+            this.totalProcessed = totalProcessed;
+        }
+        
+        public int getSuccessCount() { return successCount; }
+        public int getFailedCount() { return failedCount; }
+        public int getTotalProcessed() { return totalProcessed; }
     }
 }
