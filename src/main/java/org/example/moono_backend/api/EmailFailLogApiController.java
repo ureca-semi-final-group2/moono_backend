@@ -64,18 +64,6 @@ public class EmailFailLogApiController {
         );
     }
 
-    /**
-     * 개별 SMS 발송 (기존 API - 호환성 유지)
-     * 
-     * @param id EmailFailLog ID
-     * @return 처리 결과
-     */
-    @PostMapping("/{id}")
-    public UpdateEmailFailLogResponse sendSmsById(@PathVariable("id") Long id) {
-        emailFailLogService.update(id);
-        return new UpdateEmailFailLogResponse(id);
-    }
-
     // ==================== 응답 DTO ====================
     
     /**
@@ -109,14 +97,5 @@ public class EmailFailLogApiController {
         private int successCount;
         private int failedCount;
         private int totalProcessed;
-    }
-
-    /**
-     * 개별 SMS 발송 응답
-     */
-    @Data
-    @AllArgsConstructor
-    static class UpdateEmailFailLogResponse {
-        private Long emailFailLogId;
     }
 }
