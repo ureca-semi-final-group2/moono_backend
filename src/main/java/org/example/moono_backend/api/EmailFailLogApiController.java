@@ -3,10 +3,11 @@ package org.example.moono_backend.api;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
-import org.example.moono_backend.domain.EmailFailLog;
-import org.example.moono_backend.domain.ParseStatus;
-import org.example.moono_backend.domain.SmsSendStatus;
 import org.example.moono_backend.service.EmailFailLogService;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -14,49 +15,105 @@ import java.util.stream.Collectors;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api")
+@RequestMapping("/api/v1/emailFailLogs")
 public class EmailFailLogApiController {
 
     private final EmailFailLogService emailFailLogService;
 
-    @GetMapping("/emailFailLogs")
-    public Result findByPendingTarget() {
-        List<EmailFailLog> emailFailLogList = emailFailLogService.findSmsPendingTargets();
-        List<DetailEmailFailLogDto> detailEmailFailLogDtoList = emailFailLogList.stream()
-                .map(emailFailLog -> new DetailEmailFailLogDto(emailFailLog))
-                .collect(Collectors.toList());
-        return new Result(detailEmailFailLogDtoList);
+    /**
+     * 발송 실패 내역 조회 (페이징)
+     * 
+     * @param page 페이지 번호 (0부터 시작)
+     * @param size 페이지당 개수
+     * @return 실패 내역 리스트 (이름, 마스킹된 전화번호 포함)
+     */
+    @GetMapping
+    public FailureListResponse getFailures(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "id"));
+        Page<EmailFailLogService.EmailFailLogWithDetails> failurePage = 
+            emailFailLogService.findFailureListWithPaging(pageable);
+        
+        List<FailureItemDto> items = failurePage.getContent().stream()
+            .map(detail -> new FailureItemDto(
+                detail.getId(),
+                detail.getName(),
+                detail.getPhoneNumber(),
+                detail.getStatus()
+            ))
+            .collect(Collectors.toList());
+        
+        return new FailureListResponse(failurePage.getTotalElements(), items);
     }
 
-    @PostMapping("/emailFailLogs/{id}")
+    /**
+     * SMS 일괄 발송 (항상 성공 처리)
+     * 
+     * @return 발송 결과 통계
+     */
+    @PostMapping("/batch-sms")
+    public BatchSmsResponse sendBatchSms() {
+        EmailFailLogService.BatchSmsResult result = emailFailLogService.sendBatchSms();
+        
+        return new BatchSmsResponse(
+            result.getSuccessCount(),
+            result.getFailedCount(),
+            result.getTotalProcessed()
+        );
+    }
+
+    /**
+     * 개별 SMS 발송 (기존 API - 호환성 유지)
+     * 
+     * @param id EmailFailLog ID
+     * @return 처리 결과
+     */
+    @PostMapping("/{id}")
     public UpdateEmailFailLogResponse sendSmsById(@PathVariable("id") Long id) {
         emailFailLogService.update(id);
         return new UpdateEmailFailLogResponse(id);
     }
 
+    // ==================== 응답 DTO ====================
+    
+    /**
+     * 실패 내역 리스트 응답
+     */
     @Data
     @AllArgsConstructor
-    static class Result<T> {
-        private T data;
+    static class FailureListResponse {
+        private long totalCount;
+        private List<FailureItemDto> items;
     }
 
+    /**
+     * 실패 내역 개별 항목
+     */
     @Data
-    static class DetailEmailFailLogDto {
-        private Long emailFailLogId;
-        private String publicInfoId;
-        private SmsSendStatus smsSendStatus;
-        private ParseStatus parseStatus;
-        private String payload;
-
-        public DetailEmailFailLogDto(EmailFailLog emailFailLog) {
-            emailFailLogId = emailFailLog.getId();
-            publicInfoId = emailFailLog.getPublicInfoId();
-            smsSendStatus = emailFailLog.getSmsStatus();
-            parseStatus = emailFailLog.getParseStatus();
-            payload = emailFailLog.getPayload();
-        }
+    @AllArgsConstructor
+    static class FailureItemDto {
+        private Long id;
+        private String name;
+        private String phoneNumber;
+        private String status;
     }
 
+    /**
+     * 일괄 SMS 발송 응답
+     */
+    @Data
+    @AllArgsConstructor
+    static class BatchSmsResponse {
+        private int successCount;
+        private int failedCount;
+        private int totalProcessed;
+    }
+
+    /**
+     * 개별 SMS 발송 응답
+     */
     @Data
     @AllArgsConstructor
     static class UpdateEmailFailLogResponse {
