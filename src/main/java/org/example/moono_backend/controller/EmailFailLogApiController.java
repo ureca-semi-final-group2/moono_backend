@@ -1,4 +1,4 @@
-package org.example.moono_backend.api;
+package org.example.moono_backend.controller;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -31,20 +31,19 @@ public class EmailFailLogApiController {
     public FailureListResponse getFailures(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        
+
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "id"));
-        Page<EmailFailLogService.EmailFailLogWithDetails> failurePage = 
-            emailFailLogService.findFailureListWithPaging(pageable);
-        
+        Page<EmailFailLogService.EmailFailLogWithDetails> failurePage = emailFailLogService
+                .findFailureListWithPaging(pageable);
+
         List<FailureItemDto> items = failurePage.getContent().stream()
-            .map(detail -> new FailureItemDto(
-                detail.getId(),
-                detail.getName(),
-                detail.getPhoneNumber(),
-                detail.getStatus()
-            ))
-            .collect(Collectors.toList());
-        
+                .map(detail -> new FailureItemDto(
+                        detail.getId(),
+                        detail.getName(),
+                        detail.getPhoneNumber(),
+                        detail.getStatus()))
+                .collect(Collectors.toList());
+
         return new FailureListResponse(failurePage.getTotalElements(), items);
     }
 
@@ -56,16 +55,15 @@ public class EmailFailLogApiController {
     @PostMapping("/batch-sms")
     public BatchSmsResponse sendBatchSms() {
         EmailFailLogService.BatchSmsResult result = emailFailLogService.sendBatchSms();
-        
+
         return new BatchSmsResponse(
-            result.getSuccessCount(),
-            result.getFailedCount(),
-            result.getTotalProcessed()
-        );
+                result.getSuccessCount(),
+                result.getFailedCount(),
+                result.getTotalProcessed());
     }
 
     // ==================== 응답 DTO ====================
-    
+
     /**
      * 실패 내역 리스트 응답
      */
