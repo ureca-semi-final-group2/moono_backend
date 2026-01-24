@@ -1,6 +1,8 @@
 package org.example.moono_backend.config;
 
-import org.springframework.beans.factory.annotation.Value;
+import lombok.Getter;
+import lombok.Setter;
+import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
@@ -14,10 +16,12 @@ import java.util.List;
  * application.yml의 cors.allowed-origins 값을 사용
  */
 @Configuration
+@ConfigurationProperties(prefix = "cors")
+@Getter
+@Setter
 public class WebConfig implements WebMvcConfigurer {
     
-    @Value("${cors.allowed-origins}")
-    private List<String> allowedOrigins;
+    private List<String> allowedOrigins = List.of("http://localhost:5173", "http://localhost:5174");
     
     @Override
     public void addCorsMappings(CorsRegistry registry) {
