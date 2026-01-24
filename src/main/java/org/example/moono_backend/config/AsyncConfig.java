@@ -21,7 +21,9 @@ public class AsyncConfig {
 
         // 2. 부하 관리 정책 (Backpressure)
         // 큐가 꽉 차면 컨슈머 스레드가 직접 실행하여 유입 속도를 늦춤
+        // -> 이로 인해 Poll 이 멈출 수 있음.
         executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
+
         executor.setWaitForTasksToCompleteOnShutdown(true); // 종료 시 큐에 남은 작업 다 처리할 때까지 대기
         executor.setAwaitTerminationSeconds(60); // 최대 60초까지 기다림
 

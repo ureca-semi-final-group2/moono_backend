@@ -64,12 +64,13 @@ public class KafkaConsumerListener {
     // 컨벤션: cg-{도메인}-{기능}-{액션} 형식 (cg = consumer group)
     private static final String GROUP_ID = "cg-billing-email-send";
 
+    private static final String DLT_TOPIC = "queuing.billing.email.send.dlt"; // 설정한 DLT 토픽명
+
     private final BillingDispatchService billingDispatchService;
     private final EmailFailLogRepository emailFailLogRepository;
     private final ObjectMapper objectMapper;
     private final Executor emailExecutor;
     private final KafkaTemplate<String, Object> kafkaTemplate;
-    private static final String DLT_TOPIC = "queuing.billing.email.send.dlt"; // 설정한 DLT 토픽명
 
     /**
      * Kafka 메시지 소비 및 처리
@@ -88,6 +89,7 @@ public class KafkaConsumerListener {
      *                   때문
      *                   - 여기서 예외를 잡아서 처리하면 ErrorHandler가 동작하지 않음
      */
+
     @KafkaListener(topics = TOPIC_NAME, groupId = GROUP_ID)
     @RetryableTopic(attempts = "1", dltTopicSuffix = ".dlt", exclude = {
             DeserializationException.class }, sameIntervalTopicReuseStrategy = SameIntervalTopicReuseStrategy.SINGLE_TOPIC, dltStrategy = DltStrategy.FAIL_ON_ERROR)
@@ -98,25 +100,48 @@ public class KafkaConsumerListener {
         CompletableFuture.runAsync(() -> {
             try {
                 billingDispatchService.process(messageDto);
-
                 log.info("[Consumer] 비동기 처리 완료. ack 호출. billingId: {}", billingId);
-                ack.acknowledge();
-            } catch (EmailSendException e) {
-                log.warn("[Consumer] 이메일 발송 실패. DLT 전송. billingId: {}", billingId);
-                kafkaTemplate.send(DLT_TOPIC, messageDto);
-                ack.acknowledge();
+                // ack.acknowledge();
             } catch (BaseException e) {
+                // 복호화 실패 등 비즈니스 예외 -> 로그 찍고 DLT 전송
                 // 복호화 실패(EMAIL_DECRYPTION_FAILED, SMS_DECRYPTION_FAILED 등) 포함
-                log.error("[Consumer] 비즈니스 로직 오류. DLT 전송. errorCode: {}, billingId: {}", 
-                        e.getErrorCode().getCode(), billingId, e);
-                kafkaTemplate.send(DLT_TOPIC, messageDto);
-                ack.acknowledge();
+                log.error("[Logic Error] 비즈니스 예외 발생 code: {}", e.getErrorCode());
+                handleFailure(messageDto, billingId, e);
             } catch (Exception e) {
-                log.error("[Consumer] 예상치 못한 오류. DLT 전송. billingId: {}", billingId, e);
-                kafkaTemplate.send(DLT_TOPIC, messageDto);
-                ack.acknowledge();
+                // 일반 예외 -> DLT 전송
+                handleFailure(messageDto, billingId, e);
             }
-        }, emailExecutor);
+
+        }, emailExecutor)
+                // zombie comsumer 방지 코드
+                // 비즈니스 작업이 끝나는 순간 바로 트리거
+                .whenComplete((result, ex) -> {
+                    if (ex != null) {
+                        // runAsync 내부가 아닌, Executor 자체 에러(예: 풀 거부 등)가 터졌을 때 대비
+                        log.error("[Consumer] 비동기 실행 중 치명적 오류. billingId: {}", billingId, ex);
+                        // 이 부분도 DLT 로 전송
+                        try {
+                            kafkaTemplate.send(DLT_TOPIC, messageDto);
+                        } catch (Exception sendEx) {
+                            log.error("DLT 전송 실패", sendEx);
+                        }
+                    }
+                    // 무조건 Ack 호출 -> 파티션 Lag 해소
+                    ack.acknowledge();
+                    log.info("[Consumer] Ack 수행 완료. billingId: {}", billingId);
+                });
+    }
+
+    // 예외처리 DLT 전송
+    private void handleFailure(BillingProducerMessageDto messageDto, Long billingId, Exception e) {
+        log.error("[Consumer] 처리 실패 -> DLT 전송. billingId: {}", billingId, e);
+        try {
+            // 실패한 메시지는 DLT로 보냄
+            kafkaTemplate.send(DLT_TOPIC, messageDto);
+        } catch (Exception sendEx) {
+            log.error("[Consumer] warning!!!!! DLT 전송조차 실패함. 메시지 유실 가능성 있음. billingId: {}", billingId, sendEx);
+        }
+        // 여기서 Ack 하지 않음 -> whenComplete에서 처리
     }
 
     /**
