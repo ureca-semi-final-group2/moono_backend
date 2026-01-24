@@ -27,7 +27,7 @@ public class EmailFailLog {
     @Enumerated(EnumType.STRING)
     private ParseStatus parseStatus; // JSON 파싱 성공 여부
 
-    @Column(nullable = false, updatable = false)
+    @Column(updatable = false)
     private LocalDateTime createdAt;
 
     @PrePersist
