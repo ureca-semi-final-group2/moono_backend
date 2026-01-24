@@ -1,5 +1,7 @@
 package org.example.moono_backend.domain;
 
+import java.time.LocalDateTime;
+
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -24,6 +26,14 @@ public class EmailFailLog {
 
     @Enumerated(EnumType.STRING)
     private ParseStatus parseStatus; // JSON 파싱 성공 여부
+
+    @Column(nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
+    @PrePersist
+    protected void onCreate() {
+        this.createdAt = LocalDateTime.now();
+    }
 
     @Builder
     public EmailFailLog(String publicInfoId, String payload, ParseStatus parseStatus) {

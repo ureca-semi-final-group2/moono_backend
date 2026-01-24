@@ -12,6 +12,8 @@ import org.example.moono_backend.kafka.RawDetailsDto;
 import org.example.moono_backend.kafka.consumer.BillingConsumerMessageDto;
 import org.example.moono_backend.kafka.producer.BillingProducerMessageDto;
 import org.example.moono_backend.repository.BillingRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -42,31 +44,38 @@ public class BillingDispatchService {
      * - 성공 시: COMPLETED로 업데이트
      * - 실패 시: FAILED로 업데이트 후 DLT로 전달
      */
+
+    // 프록시 강제 통과하도록 설정 -> 트랜잭션 경계 명확
+    @Autowired
+    @Lazy
+    private BillingDispatchService self;
+
     public void process(BillingProducerMessageDto messageDto) throws EmailSendException {
         Long billingId = messageDto.getHeader().getBillingId();
         log.info("[Dispatch] 청구서 발송 처리 시작. billingId: {}", billingId);
 
         try {
             // 트랜잭션 1: DB 조회 및 DTO 변환 (상태 업데이트 하지 않음)
-            ProcessResult result = processInternal(messageDto);
+            // 프록시 타고 트랜잭션 정상 작동
+            ProcessResult result = self.processInternal(messageDto);
 
             // 트랜잭션 외부: 이메일 발송 (외부 API 호출)
             if (result.shouldSendEmail()) {
-                sendEmailAfterTransaction(result.getDispatchDto(), billingId);
+                self.sendEmailAfterTransaction(result.getDispatchDto(), billingId);
+                // 이메일을 보낸 경우에만 성공 처리할 수 있도록 IF 문 안으로 코드 이동
+                // 트랜잭션 2: 이메일 발송 성공 시 COMPLETED로 업데이트
+                self.updateStatusToCompleted(billingId);
+                log.info("[Dispatch] 청구서 발송 처리 완료. billingId: {}", billingId);
             }
-
-            // 트랜잭션 2: 이메일 발송 성공 시 COMPLETED로 업데이트
-            updateStatusToCompleted(billingId);
-            log.info("[Dispatch] 청구서 발송 처리 완료. billingId: {}", billingId);
 
         } catch (EmailSendException e) {
             // 트랜잭션 3: 이메일 발송 실패 시 FAILED로 업데이트 후 DLT로 전달
             log.error("[Dispatch] 이메일 발송 실패. FAILED로 업데이트 후 DLT로 전달. billingId: {}", billingId, e);
-            updateStatusToFailed(billingId);
+            self.updateStatusToFailed(billingId);
             throw e; // DLT로 전달
         } catch (Exception e) {
             log.error("[Dispatch] 청구서 발송 처리 중 예상치 못한 오류. FAILED로 업데이트. billingId: {}", billingId, e);
-            updateStatusToFailed(billingId);
+            self.updateStatusToFailed(billingId);
             throw EmailSendException.sendFailed(billingId != null ? billingId.toString() : null, e);
         }
     }
@@ -85,7 +94,7 @@ public class BillingDispatchService {
      * @return 처리 결과 (이메일 발송 여부 및 DTO 포함)
      */
     @Transactional
-    protected ProcessResult processInternal(BillingProducerMessageDto messageDto) {
+    public ProcessResult processInternal(BillingProducerMessageDto messageDto) {
         Long billingId = messageDto.getHeader().getBillingId();
 
         // 1. Billing 조회 (금칙 시간 체크용)
@@ -124,7 +133,7 @@ public class BillingDispatchService {
      * @throws EmailSendException 이메일 발송 실패 시
      */
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    protected void sendEmailAfterTransaction(BillingConsumerMessageDto dispatchDto, Long billingId)
+    public void sendEmailAfterTransaction(BillingConsumerMessageDto dispatchDto, Long billingId)
             throws EmailSendException {
         log.info("[Dispatch] 이메일 발송 시작 (트랜잭션 외부). billingId: {}", billingId);
 
@@ -139,6 +148,44 @@ public class BillingDispatchService {
 
         emailService.sendBillingEmail(dispatchDto);
         log.info("[Dispatch] 이메일 발송 성공. billingId: {}", billingId);
+    }
+
+    /**
+     * 이메일 발송 성공 시 COMPLETED 상태로 업데이트
+     * 
+     * @param billingId 청구서 ID
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void updateStatusToCompleted(Long billingId) {
+        try {
+            Billing billing = getBillingOrThrow(billingId);
+            billing.completeSend();
+            billingRepository.save(billing);
+            log.info("[Dispatch] 청구서 상태 업데이트 완료 (SEND_PENDING → COMPLETED). billingId: {}", billingId);
+        } catch (Exception e) {
+            log.error("[Dispatch] COMPLETED 상태 업데이트 실패. billingId: {}", billingId, e);
+            // 이메일은 이미 발송되었으므로 예외를 던지지 않음 (로깅만)
+        }
+    }
+
+    /**
+     * 이메일 발송 실패 시 FAILED 상태로 업데이트
+     * 
+     * DLT로 넘어가기 전에 반드시 호출되어야 함
+     * 
+     * @param billingId 청구서 ID
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void updateStatusToFailed(Long billingId) {
+        try {
+            Billing billing = getBillingOrThrow(billingId);
+            billing.markAsFailed();
+            billingRepository.save(billing);
+            log.info("[Dispatch] 청구서 상태 업데이트 완료 (SEND_PENDING → FAILED). billingId: {}", billingId);
+        } catch (Exception e) {
+            log.error("[Dispatch] FAILED 상태 업데이트 실패. billingId: {}", billingId, e);
+            // 상태 업데이트 실패해도 DLT로는 전달되어야 하므로 예외를 던지지 않음 (로깅만)
+        }
     }
 
     /**
@@ -262,44 +309,6 @@ public class BillingDispatchService {
         } catch (Exception e) {
             log.error("상태 업데이트 실패: billingId={}", billing.getId(), e);
             throw new RuntimeException("Billing status update failed", e);
-        }
-    }
-
-    /**
-     * 이메일 발송 성공 시 COMPLETED 상태로 업데이트
-     * 
-     * @param billingId 청구서 ID
-     */
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
-    protected void updateStatusToCompleted(Long billingId) {
-        try {
-            Billing billing = getBillingOrThrow(billingId);
-            billing.completeSend();
-            billingRepository.save(billing);
-            log.info("[Dispatch] 청구서 상태 업데이트 완료 (SEND_PENDING → COMPLETED). billingId: {}", billingId);
-        } catch (Exception e) {
-            log.error("[Dispatch] COMPLETED 상태 업데이트 실패. billingId: {}", billingId, e);
-            // 이메일은 이미 발송되었으므로 예외를 던지지 않음 (로깅만)
-        }
-    }
-
-    /**
-     * 이메일 발송 실패 시 FAILED 상태로 업데이트
-     * 
-     * DLT로 넘어가기 전에 반드시 호출되어야 함
-     * 
-     * @param billingId 청구서 ID
-     */
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
-    protected void updateStatusToFailed(Long billingId) {
-        try {
-            Billing billing = getBillingOrThrow(billingId);
-            billing.markAsFailed();
-            billingRepository.save(billing);
-            log.info("[Dispatch] 청구서 상태 업데이트 완료 (SEND_PENDING → FAILED). billingId: {}", billingId);
-        } catch (Exception e) {
-            log.error("[Dispatch] FAILED 상태 업데이트 실패. billingId: {}", billingId, e);
-            // 상태 업데이트 실패해도 DLT로는 전달되어야 하므로 예외를 던지지 않음 (로깅만)
         }
     }
 
