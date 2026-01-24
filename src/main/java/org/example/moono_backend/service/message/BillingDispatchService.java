@@ -53,11 +53,16 @@ public class BillingDispatchService {
             // 트랜잭션 외부: 이메일 발송 (외부 API 호출)
             if (result.shouldSendEmail()) {
                 sendEmailAfterTransaction(result.getDispatchDto(), billingId);
+                // 이메일을 보낸 경우에만 성공 처리할 수 있도록 IF 문 안으로 코드 이동
+                // 트랜잭션 2: 이메일 발송 성공 시 COMPLETED로 업데이트
+                updateStatusToCompleted(billingId);
+                log.info("[Dispatch] 청구서 발송 처리 완료. billingId: {}", billingId);
             }
 
-            // 트랜잭션 2: 이메일 발송 성공 시 COMPLETED로 업데이트
-            updateStatusToCompleted(billingId);
-            log.info("[Dispatch] 청구서 발송 처리 완료. billingId: {}", billingId);
+            // // ----------------_--!!! 문제 발생 지점 !!! ----------------
+            // // 트랜잭션 2: 이메일 발송 성공 시 COMPLETED로 업데이트
+            // updateStatusToCompleted(billingId);
+            // log.info("[Dispatch] 청구서 발송 처리 완료. billingId: {}", billingId);
 
         } catch (EmailSendException e) {
             // 트랜잭션 3: 이메일 발송 실패 시 FAILED로 업데이트 후 DLT로 전달
