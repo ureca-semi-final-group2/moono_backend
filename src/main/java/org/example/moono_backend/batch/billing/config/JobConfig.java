@@ -76,7 +76,8 @@ public class JobConfig {
         MemberPreloadListener billingMemberPreloadListener,
         RegistrationPreloadListener registrationPreloadListener,
         AdditionalServicePreloadListener additionalServicePreloadListener,
-        BackOffPolicy billingBatchExponentialBackOff
+        BackOffPolicy billingBatchExponentialBackOff,
+        BatchMetricsListener batchMetricsListener
     ) {
         return new StepBuilder("workerStep", jobRepository)
             .<BillingSourceRow, BillingWriteItem>chunk(CHUNK_SIZE, platformTransactionManager)
@@ -101,6 +102,7 @@ public class JobConfig {
             .listener((ChunkListener) registrationPreloadListener)
             .listener((ItemReadListener<? super BillingSourceRow>) additionalServicePreloadListener)
             .listener((ChunkListener) additionalServicePreloadListener)
+            .listener(batchMetricsListener)
             .build();
     }
 
