@@ -12,6 +12,7 @@ import org.example.moono_backend.kafka.RawDetailsDto;
 import org.example.moono_backend.kafka.consumer.BillingConsumerMessageDto;
 import org.example.moono_backend.kafka.producer.BillingProducerMessageDto;
 import org.example.moono_backend.service.admin.BillingTypeConverter;
+import org.example.moono_backend.utils.CryptoUtil;
 import org.springframework.stereotype.Component;
 
 import java.util.Collections;
@@ -25,11 +26,18 @@ public class ForceBillingMapper {
 
     private final ObjectMapper objectMapper;
     private final BillingTypeConverter typeConverter;
+    private final CryptoUtil cryptoUtil;
 
     // 1. 목록 조회용 변환 (ListItem)
     public ForceBillingDto.ListItem toListItem(Billing billing, MemberCredential member) {
-        String name = (member != null) ? member.getName() : "알 수 없음";
-        String email = (member != null) ? member.getEmail() : "";
+        String rawName = (member != null) ? member.getName() : "알 수 없음";
+        String rawEmail = (member != null) ? member.getEmail() : "";
+
+        String name = rawName; // 이름은 SQL상 평문이므로 그대로
+        // 이메일 복호화
+        String email = (member != null && cryptoUtil.isEncrypted(rawEmail))
+                ? cryptoUtil.decrypt(rawEmail)
+                : rawEmail;
 
         String formattedMonth = billing.getBillingDate().getYear() + "-" +
                 String.format("%02d", billing.getBillingDate().getMonthValue());
@@ -128,9 +136,17 @@ public class ForceBillingMapper {
 
         // Receiver
         BillingConsumerMessageDto.Receiver receiver = new BillingConsumerMessageDto.Receiver();
+
+        String decEmail = cryptoUtil.isEncrypted(member.getEmail())
+                ? cryptoUtil.decrypt(member.getEmail())
+                : member.getEmail();
+        String decPhone = cryptoUtil.isEncrypted(member.getPhoneNumber())
+                ? cryptoUtil.decrypt(member.getPhoneNumber())
+                : member.getPhoneNumber();
+
         receiver.setName(member.getName());
-        receiver.setEmail(member.getEmail());
-        receiver.setPhone(member.getPhoneNumber());
+        receiver.setEmail(decEmail);
+        receiver.setPhone(decPhone);
         dto.setReceiver(receiver);
 
         // Summary

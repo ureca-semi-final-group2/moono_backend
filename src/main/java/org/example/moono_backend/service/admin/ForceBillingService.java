@@ -97,8 +97,8 @@ public class ForceBillingService {
 
         return ForceBillingDto.PreviewResponse.builder()
                 .billingId(billing.getId())
-                .userName(member.getName())
-                .userEmail(member.getEmail())
+                .userName(consumerDto.getReceiver().getName())
+                .userEmail(consumerDto.getReceiver().getEmail())
                 .billingMonth(consumerDto.getHeader().getBillingMonth())
                 .sendStatus(billing.getSendStatus().name())
                 .htmlSubject(subject)
