@@ -124,7 +124,7 @@ public class ForceBillingService {
         UserDndPolicy dnd = dndRepository.findByPublicInfoId(billing.getPublicInfoId())
                 .orElseThrow(() -> new IllegalArgumentException("DND 정책 없음"));
 
-        // 3-1. Kafka 메시지 생성 (Mapper 위임)
+        // 3-1. Kafka 메시지 생성 (Mapper 위임) isForced = true 로 매퍼에서 전달
         BillingProducerMessageDto message = mapper.toProducerMessage(billing, member, dnd);
 
         // 3-2. Kafka 전송
