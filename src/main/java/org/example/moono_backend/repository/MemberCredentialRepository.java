@@ -11,7 +11,7 @@ import java.util.Optional;
 public interface MemberCredentialRepository extends JpaRepository<MemberCredential, Long> {
 
     // N+1 문제 확인용
-    MemberCredential findByPublicInfoId(String publicInfoId);
+    Optional<MemberCredential> findByPublicInfoId(String publicInfoId);
 
     List<MemberCredential> findAllByPublicInfoIdIn(List<String> publicInfoIds);
 }
