@@ -205,7 +205,7 @@ public class EmailService {
      */
     private BillingConsumerMessageDto decryptReceiverInfo(BillingConsumerMessageDto dto) {
         String billingId = extractBillingId(dto);
-        
+
         try {
             BillingConsumerMessageDto decrypted = new BillingConsumerMessageDto();
 
@@ -220,22 +220,23 @@ public class EmailService {
 
             // Receiver 복호화 (암호화된 경우만)
             BillingConsumerMessageDto.Receiver receiver = new BillingConsumerMessageDto.Receiver();
-            
+
             String name = dto.getReceiver().getName();
             String email = dto.getReceiver().getEmail();
             String phone = dto.getReceiver().getPhone();
-            
+
             // 암호화 여부 체크 후 복호화
             receiver.setName(cryptoUtil.isEncrypted(name) ? cryptoUtil.decrypt(name) : name);
             receiver.setEmail(cryptoUtil.isEncrypted(email) ? cryptoUtil.decrypt(email) : email);
             receiver.setPhone(cryptoUtil.isEncrypted(phone) ? cryptoUtil.decrypt(phone) : phone);
-            
+
             decrypted.setReceiver(receiver);
 
-            log.info("[EmailService] Receiver 정보 처리 완료 (암호화: name={}, email={}, phone={}). billingId: {}", 
-                cryptoUtil.isEncrypted(name), cryptoUtil.isEncrypted(email), cryptoUtil.isEncrypted(phone), billingId);
+            log.info("[EmailService] Receiver 정보 처리 완료 (암호화: name={}, email={}, phone={}). billingId: {}",
+                    cryptoUtil.isEncrypted(name), cryptoUtil.isEncrypted(email), cryptoUtil.isEncrypted(phone),
+                    billingId);
             return decrypted;
-            
+
         } catch (Exception e) {
             log.error("[EmailService] Receiver 정보 복호화 실패. billingId: {}", billingId, e);
             throw new BaseException(ErrorCode.EMAIL_DECRYPTION_FAILED);

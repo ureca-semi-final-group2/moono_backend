@@ -129,17 +129,14 @@ public class BillingDispatchService {
                 return ProcessResult.skip();
             }
         }
-        // 4. rawDetails 파싱 및 변환 (json 문자열을 RawDetailsDto로 파싱)
+        // 상세 내역 파싱
+        // messageDto.getRawDetails()에 담긴 JSON 문자열을 객체로 변환합니다.
         RawDetailsDto rawDetails = parseRawDetails(messageDto.getRawDetails(), billingId);
 
-        // 5. BillingProducerMessageDto를 BillingConsumerMessageDto로 변환
-        BillingConsumerMessageDto dispatchDto = convertToBillingDispatchDto(messageDto, rawDetails);
+        // 3. 매퍼 호출 (파싱된 rawDetails를 넘겨줌)
+        BillingConsumerMessageDto dispatchDto = forceBillingMapper.toConsumerDtoFromProducer(messageDto, rawDetails);
 
-        // 참고: 상태 업데이트는 이메일 발송 성공/실패 후에 처리
-        // - 성공: updateStatusToCompleted()
-        // - 실패: updateStatusToFailed()
         log.info("[Dispatch] DTO 변환 완료. 이메일 발송 준비. billingId: {}", billingId);
-
         return ProcessResult.send(dispatchDto);
     }
 

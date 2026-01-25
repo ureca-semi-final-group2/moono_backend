@@ -79,7 +79,6 @@ public class ForceBillingMapper {
 
     // - Kafka에서 받은 BillingProducerMessageDto를
     // - 실제 이메일 발송에 사용하는 BillingConsumerMessageDto로 변환
-
     public BillingConsumerMessageDto toConsumerDtoFromProducer(BillingProducerMessageDto producerDto,
             RawDetailsDto rawDetails) {
         BillingConsumerMessageDto dto = new BillingConsumerMessageDto();
@@ -107,7 +106,6 @@ public class ForceBillingMapper {
         summary.setUsageFee(producerDto.getBillingSummary().getUsageFee());
         dto.setBillingSummary(summary);
 
-        // 4. Details 매핑 (기존에 작성하신 mapOverages, mapDiscounts 활용)
         BillingConsumerMessageDto.Details details = new BillingConsumerMessageDto.Details();
         details.setOverageItem(mapOverages(rawDetails.getOverages()));
         details.setDiscountItem(mapDiscounts(rawDetails.getDiscounts()));
