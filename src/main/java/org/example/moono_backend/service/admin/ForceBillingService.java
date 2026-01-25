@@ -20,6 +20,7 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -45,10 +46,16 @@ public class ForceBillingService {
     @Transactional(readOnly = true)
     public Page<ForceBillingDto.ListItem> searchBillings(Integer year, Integer month, String keyword, String statusStr,
             Pageable pageable) {
+        // 프론트 요청값(2026년 1월) 으로 날짜 검색 범위 생성
+        LocalDateTime start = LocalDateTime.of(year, month, 1, 0, 0, 0);
+
+        LocalDateTime end = start.withDayOfMonth(start.toLocalDate().lengthOfMonth())
+                .withHour(23).withMinute(59).withSecond(59);
+
         SendStatus status = (statusStr != null) ? SendStatus.valueOf(statusStr) : null;
 
         // 1-1. Billing 페이징 조회
-        Page<Billing> billings = billingRepository.search(year, month, keyword, status, pageable);
+        Page<Billing> billings = billingRepository.search(start, end, keyword, status, pageable);
 
         // 1-2. N+1 문제 해결을 위한 Member 일괄 조회 (Bulk Fetch)
         List<String> publicInfoIds = billings.stream().map(Billing::getPublicInfoId).toList();
@@ -123,7 +130,7 @@ public class ForceBillingService {
         // 3-2. Kafka 전송
         try {
             // (A) 동기 전송: 3초 안에 브로커가 "OK" 안 하면 에러 터뜨림 (확실하게 갔는지 확인)
-            kafkaTemplate.send("billing-send-topic", message).get(3, TimeUnit.SECONDS);
+            kafkaTemplate.send("queuing.billing.email.send", message).get(3, TimeUnit.SECONDS);
 
             // (B) 상태 변경: 성공했으면 DB 상태를 즉시 '발송 대기'로 변경
             // (Entity에 markAsSending 메서드가 없으면 setter나 updateStatus 메서드 사용)
