@@ -1,26 +1,59 @@
-안녕하세요, {{receiver.name}}님. 항상 저희 서비스를 이용해 주셔서 감사합니다.
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        /* 이메일 클라이언트 호환성을 위해 스타일은 하단처럼 인라인으로도 넣는 것이 좋습니다 */
+        body { font-family: 'Pretendard', -apple-system, sans-serif; line-height: 1.6; color: #333; }
+    </style>
+</head>
+<body style="margin: 0; padding: 20px; background-color: #f9fafb;">
+    <div style="max-width: 600px; margin: 0 auto; background: white; padding: 40px; border-radius: 12px; border: 1px solid #e5e7eb;">
+        
+        <div style="background: linear-gradient(135deg, #E6007E, #FF1493); color: white; padding: 30px; border-radius: 8px; text-align: center;">
+            <h1 style="margin: 0; font-size: 24px;">U+모바일 청구서</h1>
+            <p style="margin: 10px 0 0 0; opacity: 0.9;">{{header.billingMonth}} 청구 내역입니다</p>
+        </div>
 
-1. 청구 요약:
+        <div style="padding: 30px 0;">
+            <div style="background: #f3f4f6; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                <h2 style="color: #E6007E; font-size: 18px; margin-top: 0;">고객 정보</h2>
+                <p style="margin: 5px 0;"><strong>이름:</strong> {{receiver.name}}</p>
+                <p style="margin: 5px 0;"><strong>이메일:</strong> {{receiver.email}}</p>
+                <p style="margin: 5px 0;"><strong>청구월:</strong> {{header.billingMonth}}</p>
+            </div>
 
-- 이번 달 납부하실 금액: {{billingSummary.totalAmount}} 원
+            <div style="font-size: 32px; font-weight: bold; color: #E6007E; text-align: center; margin: 30px 0; padding: 20px; border-top: 2px solid #f3f4f6; border-bottom: 2px solid #f3f4f6;">
+                청구 금액: {{billingSummary.totalAmount}}원
+            </div>
 
-- 납부 기한: {{billingSummary.dueDate}}
+            <div style="background: #ffffff; border: 1px solid #e5e7eb; padding: 20px; border-radius: 8px;">
+                <h2 style="color: #E6007E; font-size: 18px; margin-top: 0;">상세 내역</h2>
+                <table style="width: 100%; border-collapse: collapse;">
+                    <tr style="border-bottom: 1px solid #f3f4f6;">
+                        <td style="padding: 10px 0;">기본료</td>
+                        <td style="text-align: right; padding: 10px 0;">{{billingSummary.baseFee}}원</td>
+                    </tr>
+                    {{#each details.overageItem}}
+                    <tr style="border-bottom: 1px solid #f3f4f6;">
+                        <td style="padding: 10px 0;">{{this.name}}</td>
+                        <td style="text-align: right; padding: 10px 0;">{{this.price}}원</td>
+                    </tr>
+                    {{/each}}
+                    {{#each details.discountItem}}
+                    <tr style="border-bottom: 1px solid #f3f4f6; color: #ff4d4d;">
+                        <td style="padding: 10px 0;">{{this.name}} (할인)</td>
+                        <td style="text-align: right; padding: 10px 0;">-{{this.amount}}원</td>
+                    </tr>
+                    {{/each}}
+                </table>
+            </div>
+        </div>
 
-2. 항목별 상세 내역 (Breakdown):
-
-- 요금제 기본료: {{billingSummary.baseFee}} 원 (기본 요금제 정보)
-- 데이터/음성 사용량 초과분: {{billingSummary.usageFee}} 원 (사용량 데이터 기반)
-
-3. 부가 서비스 상세(VAS List)
-{{#each details.overageItem}}
-    - {{this.name}} : {{this.price}} 원
-{{/each}}
-
-4. 할인 적용 상세 (Discount List)
-{{#each details.discountItem}}
-    - {{this.name}} : -{{this.amount}} 원
-{{/each}}
-
-5. 최종 결제 금액
-
-- 총계: {{billingSummary.totalAmount}} 원 (VAT 포함)
+        <div style="text-align: center; color: #6b7280; font-size: 12px; margin-top: 40px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
+            <p>본 메일은 발신전용입니다. 문의사항은 U+ 고객센터(101)로 연락주세요.</p>
+            <p>© 2026 LG U+. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>
