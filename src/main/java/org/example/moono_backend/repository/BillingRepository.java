@@ -12,7 +12,6 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
 
 /**
  * Billing 엔티티에 대한 접근 계층
@@ -60,5 +59,14 @@ public interface BillingRepository extends JpaRepository<Billing, Long> {
                         @Param("keyword") String keyword,
                         @Param("status") SendStatus status,
                         Pageable pageable);
+        //특정 월의 sendStatus 개수 조회
+        @Query("SELECT COUNT(b) FROM Billing b " +
+                "WHERE b.sendStatus = :status " +
+                "AND b.billingDate BETWEEN :startDate AND :endDate")
+        long countByStatusAndMonth(
+                @Param("status") SendStatus status,
+                @Param("startDate") LocalDateTime startDate,
+                @Param("endDate") LocalDateTime endDate
+        );
 
 }
