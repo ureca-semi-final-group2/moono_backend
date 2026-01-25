@@ -28,4 +28,12 @@ public interface UserDndPolicyRepository extends JpaRepository<UserDndPolicy, Lo
             boolean isDndActive);
 
     List<UserDndPolicy> findAllByPublicInfoIdIn(List<String> publicInfoIds);
+
+    /**
+     * 발송일별 회원 수 조회
+     *
+     * @param sendDay 발송일 (15 or 21)
+     * @return 해당 발송일의 회원 수
+     */
+    long countBySendDay(int sendDay);
 }
