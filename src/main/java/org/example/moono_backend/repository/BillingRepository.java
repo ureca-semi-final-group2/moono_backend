@@ -52,21 +52,26 @@ public interface BillingRepository extends JpaRepository<Billing, Long> {
                         "JOIN MemberCredential m ON b.publicInfoId = m.publicInfoId " +
                         "WHERE b.billingDate BETWEEN :startDate AND :endDate " +
                         "AND (:keyword IS NULL OR m.name LIKE %:keyword% OR b.publicInfoId LIKE %:keyword%) " +
-                        "AND (:status IS NULL OR b.sendStatus = :status)")
+                        "AND (:status IS NULL OR b.sendStatus = :status) " +
+                        "ORDER BY " +
+                        "  CASE WHEN m.name = :keyword THEN 1 " + // 1순위: 이름 완전 일치
+                        "       WHEN m.name LIKE :keyword% THEN 2 " + // 2순위: 이름으로 시작
+                        "       ELSE 3 END, " + // 3순위: 나머지 가중치 동일
+                        "  b.id DESC") // 최종 순위: 청구서 ID 최신순
         Page<Billing> search(
                         @Param("startDate") LocalDateTime startDate,
                         @Param("endDate") LocalDateTime endDate,
                         @Param("keyword") String keyword,
                         @Param("status") SendStatus status,
                         Pageable pageable);
-        //특정 월의 sendStatus 개수 조회
+
+        // 특정 월의 sendStatus 개수 조회
         @Query("SELECT COUNT(b) FROM Billing b " +
-                "WHERE b.sendStatus = :status " +
-                "AND b.billingDate BETWEEN :startDate AND :endDate")
+                        "WHERE b.sendStatus = :status " +
+                        "AND b.billingDate BETWEEN :startDate AND :endDate")
         long countByStatusAndMonth(
-                @Param("status") SendStatus status,
-                @Param("startDate") LocalDateTime startDate,
-                @Param("endDate") LocalDateTime endDate
-        );
+                        @Param("status") SendStatus status,
+                        @Param("startDate") LocalDateTime startDate,
+                        @Param("endDate") LocalDateTime endDate);
 
 }

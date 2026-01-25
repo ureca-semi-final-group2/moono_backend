@@ -46,7 +46,13 @@ public class ForceBillingMapper {
                 .build();
     }
 
-    // 2. Kafka Producer용 메시지 생성
+    // [ADMIN ACTION] 관리자 강제 발송 버튼 클릭 시
+    // ForceBillingService.resendBilling()
+
+    // - 관리자 강제 발송 요청을 Kafka Producer 메시지로 변환
+    // - 이 메시지가 Kafka Topic으로
+
+    // header.isForced = true → Consumer가 금칙 시간 무시하도록 하는 유일한 트리거
     public BillingProducerMessageDto toProducerMessage(Billing billing, MemberCredential member, UserDndPolicy dnd) {
         return BillingProducerMessageDto.builder()
                 .header(BillingProducerMessageDto.Header.builder()
@@ -71,7 +77,46 @@ public class ForceBillingMapper {
                 .build();
     }
 
-    // 3. EmailService용 DTO 변환 (Consumer용 DTO 재활용)
+    // - Kafka에서 받은 BillingProducerMessageDto를
+    // - 실제 이메일 발송에 사용하는 BillingConsumerMessageDto로 변환
+
+    public BillingConsumerMessageDto toConsumerDtoFromProducer(BillingProducerMessageDto producerDto,
+            RawDetailsDto rawDetails) {
+        BillingConsumerMessageDto dto = new BillingConsumerMessageDto();
+
+        // 1. Header 매핑 (리플렉션 없이 직접 호출)
+        BillingConsumerMessageDto.Header header = new BillingConsumerMessageDto.Header();
+        header.setBillingId(producerDto.getHeader().getBillingId());
+        header.setBillingMonth(producerDto.getHeader().getBillingMonth());
+        // 핵심: 여기서 강제 발송 플래그를 확실히 넘겨줍니다.
+        header.setForced(producerDto.getHeader().isForced());
+        dto.setHeader(header);
+
+        // 2. Receiver 매핑
+        BillingConsumerMessageDto.Receiver receiver = new BillingConsumerMessageDto.Receiver();
+        receiver.setName(producerDto.getReceiver().getName());
+        receiver.setEmail(producerDto.getReceiver().getEmail());
+        receiver.setPhone(producerDto.getReceiver().getPhone());
+        dto.setReceiver(receiver);
+
+        // 3. Summary 매핑
+        BillingConsumerMessageDto.BillingSummary summary = new BillingConsumerMessageDto.BillingSummary();
+        summary.setTotalAmount(producerDto.getBillingSummary().getTotalAmount());
+        summary.setDueDate(producerDto.getBillingSummary().getDueDate());
+        summary.setBaseFee(producerDto.getBillingSummary().getBaseFee());
+        summary.setUsageFee(producerDto.getBillingSummary().getUsageFee());
+        dto.setBillingSummary(summary);
+
+        // 4. Details 매핑 (기존에 작성하신 mapOverages, mapDiscounts 활용)
+        BillingConsumerMessageDto.Details details = new BillingConsumerMessageDto.Details();
+        details.setOverageItem(mapOverages(rawDetails.getOverages()));
+        details.setDiscountItem(mapDiscounts(rawDetails.getDiscounts()));
+        dto.setDetails(details);
+
+        return dto;
+    }
+
+    // 관리자 페이지 미리보기 시
     public BillingConsumerMessageDto toConsumerDto(Billing billing, MemberCredential member) {
         RawDetailsDto rawDetails = parseRawDetails(billing.getBillingDetails());
 

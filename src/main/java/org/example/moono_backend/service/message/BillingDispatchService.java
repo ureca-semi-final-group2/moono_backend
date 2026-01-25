@@ -11,6 +11,7 @@ import org.example.moono_backend.exception.EmailSendException;
 import org.example.moono_backend.kafka.RawDetailsDto;
 import org.example.moono_backend.kafka.consumer.BillingConsumerMessageDto;
 import org.example.moono_backend.kafka.producer.BillingProducerMessageDto;
+import org.example.moono_backend.mapper.ForceBillingMapper;
 import org.example.moono_backend.repository.BillingRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
@@ -31,6 +32,7 @@ public class BillingDispatchService {
     private final EmailService emailService;
     private final QuietHourService quietHourService;
     private final ObjectMapper objectMapper;
+    private final ForceBillingMapper forceBillingMapper;
 
     /**
      * 청구서 발송 처리 메인 메서드
@@ -96,19 +98,37 @@ public class BillingDispatchService {
     @Transactional
     public ProcessResult processInternal(BillingProducerMessageDto messageDto) {
         Long billingId = messageDto.getHeader().getBillingId();
+        boolean isForced = messageDto.getHeader().isForced();
+
+        log.info("[DEBUG] 수신된 isForced: {}, billingId: {}", isForced, billingId);
 
         // 1. Billing 조회 (금칙 시간 체크용)
         Billing billing = getBillingOrThrow(billingId);
 
-        // 2. 강제 발송 확인
-        boolean isForced = messageDto.getHeader().isForced();
+        // 1. 강제 발송인 경우: 모든 상태와 금칙시간을 무시하고 즉시 발송 로직으로 진입
+        if (isForced) {
+            log.info("[Dispatch] ★강제 발송 요청★ 상태와 상관없이 발송을 진행합니다. billingId: {}", billingId);
+            // 강제 발송일 때는 아래의 체크 로직들을 모두 건너뛰고 바로 mapping 로직(4번)으로 갑니다.
+        } else {
+            // 2. 일반 발송(배치 등)인 경우에만 체크 로직 수행
+            // 이미 발송 완료된 경우 스킵
+            if (billing.getSendStatus() == SendStatus.COMPLETED) {
+                log.info("[Dispatch] 일반 발송: 이미 완료된 건입니다. 스킵합니다. billingId: {}", billingId);
+                return ProcessResult.skip();
+            }
 
-        // 3. 금칙 시간 확인 (강제 발송이 아닌 경우)
-        if (!isForced && checkQuietHours(messageDto, billing)) {
-            log.info("[Dispatch] 금칙 시간으로 인해 발송 보류. billingId: {}", billingId);
-            return ProcessResult.skip();
+            // 이미 발송 중(배치 처리 중)인 경우 스킵
+            if (billing.getSendStatus() == SendStatus.SEND_PENDING) {
+                log.warn("[Dispatch] 일반 발송: 현재 배치 작업 중입니다. 중복 방지를 위해 스킵합니다. billingId: {}", billingId);
+                return ProcessResult.skip();
+            }
+
+            // 금칙 시간 확인
+            if (checkQuietHours(messageDto, billing)) {
+                log.info("[Dispatch] 일반 발송: 금칙 시간으로 인해 발송 보류. billingId: {}", billingId);
+                return ProcessResult.skip();
+            }
         }
-
         // 4. rawDetails 파싱 및 변환 (json 문자열을 RawDetailsDto로 파싱)
         RawDetailsDto rawDetails = parseRawDetails(messageDto.getRawDetails(), billingId);
 
@@ -268,33 +288,6 @@ public class BillingDispatchService {
         }
     }
 
-    /**
-     * Billing 상태 업데이트
-     * 
-     * Billing 엔티티에 setter가 없으므로 reflection을 사용합니다.
-     */
-
-    /**
-     * private void updateBillingStatus(Billing billing, SendStatus sendStatus) {
-     * try {
-     * java.lang.reflect.Method setter = Billing.class.getMethod("setSendStatus",
-     * SendStatus.class);
-     * setter.invoke(billing, sendStatus);
-     * billingRepository.save(billing);
-     * log.debug("Billing status updated. billingId: {}, status: {}",
-     * billing.getId(), sendStatus);
-     * } catch (NoSuchMethodException e) {
-     * log.error("Billing entity does not have setSendStatus method. billingId: {}",
-     * billing.getId(), e);
-     * throw new RuntimeException("Billing entity needs setter for sendStatus", e);
-     * } catch (Exception e) {
-     * log.error("Failed to update billing status using reflection. billingId: {}",
-     * billing.getId(), e);
-     * throw new RuntimeException("Failed to update billing status", e);
-     * }
-     * }
-     **/
-
     // 리플랙션 제거하고 set 메서드 직접 호출
     private void updateBillingStatus(Billing billing, SendStatus sendStatus) {
         try {
@@ -342,117 +335,7 @@ public class BillingDispatchService {
     private BillingConsumerMessageDto convertToBillingDispatchDto(
             BillingProducerMessageDto messageDto, RawDetailsDto rawDetails) {
 
-        BillingConsumerMessageDto dto = new BillingConsumerMessageDto();
-
-        // Header 변환
-        BillingConsumerMessageDto.Header header = new BillingConsumerMessageDto.Header();
-        header.setBillingId(messageDto.getHeader().getBillingId());
-        header.setBillingMonth(messageDto.getHeader().getBillingMonth());
-        // boolean 필드는 setForced() 또는 setIsForced() 중 하나가 생성됨
-        try {
-            header.getClass().getMethod("setForced", boolean.class)
-                    .invoke(header, messageDto.getHeader().isForced());
-        } catch (NoSuchMethodException e) {
-            // setForced가 없으면 setIsForced 시도
-            try {
-                header.getClass().getMethod("setIsForced", boolean.class)
-                        .invoke(header, messageDto.getHeader().isForced());
-            } catch (Exception ex) {
-                log.warn("[Dispatch] isForced 필드 설정 실패", ex);
-            }
-        } catch (Exception e) {
-            log.warn("[Dispatch] isForced 필드 설정 실패", e);
-        }
-        dto.setHeader(header);
-
-        // Receiver 변환
-        BillingConsumerMessageDto.Receiver receiver = new BillingConsumerMessageDto.Receiver();
-        receiver.setName(messageDto.getReceiver().getName());
-        receiver.setEmail(messageDto.getReceiver().getEmail());
-        receiver.setPhone(messageDto.getReceiver().getPhone());
-        // receiver.setDndStart(messageDto.getReceiver().getDndStart());
-        // receiver.setDndEnd(messageDto.getReceiver().getDndEnd());
-        dto.setReceiver(receiver);
-
-        // BillingSummary 변환
-        BillingConsumerMessageDto.BillingSummary summary = new BillingConsumerMessageDto.BillingSummary();
-        summary.setTotalAmount(messageDto.getBillingSummary().getTotalAmount());
-        summary.setDueDate(messageDto.getBillingSummary().getDueDate());
-        summary.setBaseFee(messageDto.getBillingSummary().getBaseFee());
-        summary.setUsageFee(messageDto.getBillingSummary().getUsageFee());
-        dto.setBillingSummary(summary);
-
-        // Details 변환 (RawDetailsDto에서 변환)
-        // 이메일 템플릿 요구사항에 맞게 overageItem과 discountItem으로 변환
-        BillingConsumerMessageDto.Details details = new BillingConsumerMessageDto.Details();
-
-        // Overages를 overageItem으로 변환 (type -> name, amount -> price)
-        if (rawDetails.getOverages() != null) {
-            List<BillingConsumerMessageDto.AdditionalServiceItem> overageItems = rawDetails.getOverages().stream()
-                    .map(overage -> {
-                        BillingConsumerMessageDto.AdditionalServiceItem item = new BillingConsumerMessageDto.AdditionalServiceItem();
-                        item.setName(getOverageDisplayName(overage.getType()));
-                        item.setPrice(overage.getAmount());
-                        return item;
-                    })
-                    .collect(Collectors.toList());
-            details.setOverageItem(overageItems);
-        }
-
-        // Discounts를 discountItem으로 변환 (type -> name)
-        if (rawDetails.getDiscounts() != null) {
-            List<BillingConsumerMessageDto.DiscountItem> discountItems = rawDetails.getDiscounts().stream()
-                    .map(discount -> {
-                        BillingConsumerMessageDto.DiscountItem item = new BillingConsumerMessageDto.DiscountItem();
-                        item.setName(getDiscountDisplayName(discount.getType()));
-                        item.setAmount(discount.getAmount());
-                        return item;
-                    })
-                    .collect(Collectors.toList());
-            details.setDiscountItem(discountItems);
-        }
-
-        dto.setDetails(details);
-
-        return dto;
+        return forceBillingMapper.toConsumerDtoFromProducer(messageDto, rawDetails);
     }
 
-    /**
-     * 과금 타입을 표시용 이름으로 변환
-     * 
-     * @param type 과금 타입 ("data", "voice", "sms" 등)
-     * @return 표시용 이름
-     */
-    private String getOverageDisplayName(String type) {
-        if (type == null) {
-            return "기타";
-        }
-
-        return switch (type.toLowerCase()) {
-            case "data", "over_data" -> "데이터 초과";
-            case "voice", "over_voice" -> "통화량 초과";
-            case "sms", "over_sms", "message" -> "메시지량 초과";
-            default -> type; // 알 수 없는 타입은 그대로 반환
-        };
-    }
-
-    /**
-     * 할인 타입을 표시용 이름으로 변환
-     * 
-     * @param type 할인 타입 ("select_contract", "event" 등)
-     * @return 표시용 이름
-     */
-    private String getDiscountDisplayName(String type) {
-        if (type == null) {
-            return "기타 할인";
-        }
-
-        return switch (type.toLowerCase()) {
-            case "select_contract" -> "선택약정 할인";
-            case "event" -> "이벤트 할인";
-            case "loyalty" -> "고객 우대 할인";
-            case "family" -> "가족 할인";
-            default -> type + " 할인"; // 알 수 없는 타입은 "타입 할인" 형식으로 반환
-        };
-    }
 }

@@ -5,6 +5,8 @@ import org.example.moono_backend.domain.member.MemberCredential;
 import org.example.moono_backend.domain.member.UserDndPolicy;
 import org.example.moono_backend.dto.BatchBillingDto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -34,7 +36,13 @@ public class BillingProducerMessageDto {
         private String publicInfoId;
         private Long billingId; // 정합성 및 멱등성 체크용 ID
         private String billingMonth; // 청구 월 (예: "2026-01")
+
+        @JsonProperty("isForced")
         private boolean isForced; // DND 무시 여부 (강제 발송 시)
+
+        public boolean isForced() {
+            return isForced;
+        }
     }
 
     @Getter
