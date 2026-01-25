@@ -1,4 +1,4 @@
-package org.example.moono_backend.controller;
+package org.example.moono_backend.controller.batch;
 
 import org.springframework.web.bind.annotation.RestController;
 

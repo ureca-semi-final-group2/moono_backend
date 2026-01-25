@@ -1,4 +1,4 @@
-package org.example.moono_backend.controller;
+package org.example.moono_backend.controller.admin;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;

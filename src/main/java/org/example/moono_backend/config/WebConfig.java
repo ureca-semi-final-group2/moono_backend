@@ -20,16 +20,16 @@ import java.util.List;
 @Getter
 @Setter
 public class WebConfig implements WebMvcConfigurer {
-    
+
     private List<String> allowedOrigins = List.of("http://localhost:5173", "http://localhost:5174");
-    
+
     @Override
     public void addCorsMappings(CorsRegistry registry) {
-        registry.addMapping("/api/**")  // /api로 시작하는 모든 경로에 적용
-                .allowedOrigins(allowedOrigins.toArray(new String[0]))  // yml에서 읽어온 origins
-                .allowedMethods("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS")  // 허용할 HTTP 메서드
-                .allowedHeaders("*")              // 모든 헤더 허용
-                .allowCredentials(false)          // 인증 사용 안함 (쿠키, 인증 헤더 전송 안함)
-                .maxAge(3600);                    // preflight 요청 캐시 시간 (1시간)
+        registry.addMapping("/api/**") // /api로 시작하는 모든 경로에 적용
+                .allowedOrigins(allowedOrigins.toArray(new String[0])) // yml에서 읽어온 origins
+                .allowedMethods("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS") // 허용할 HTTP 메서드
+                .allowedHeaders("*") // 모든 헤더 허용
+                .allowCredentials(false) // 인증 사용 안함 (쿠키, 인증 헤더 전송 안함)
+                .maxAge(3600); // preflight 요청 캐시 시간 (1시간)
     }
 }

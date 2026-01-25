@@ -10,7 +10,7 @@ import java.util.Optional;
 @Repository
 public interface UserDndPolicyRepository extends JpaRepository<UserDndPolicy, Long> {
 
-    UserDndPolicy findByPublicInfoId(String publicInfoId);
+    Optional<UserDndPolicy> findByPublicInfoId(String publicInfoId);
 
     /**
      * 발송일별 정책 조회

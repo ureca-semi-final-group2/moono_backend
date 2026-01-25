@@ -45,6 +45,10 @@ public class Billing {
     @Column(columnDefinition = "jsonb")
     private String billingDetails;
 
+    public void markAsSending() {
+        this.sendStatus = SendStatus.SEND_PENDING;
+    }
+
     public void completeSend() {
         this.sendStatus = SendStatus.COMPLETED;
     }
