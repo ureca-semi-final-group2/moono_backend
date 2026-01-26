@@ -280,6 +280,12 @@ public class BillingDispatchService {
      */
     private boolean checkQuietHours(BillingProducerMessageDto messageDto, Billing billing) {
         try {
+            // isDndActive가 false인 경우 금칙시간 체크 불필요
+            if (!messageDto.getReceiver().isDndActive()) {
+                log.debug("[Dispatch] 금칙 시간 비활성화. billingId: {}", billing.getId());
+                return false;
+            }
+
             String dndStart = messageDto.getReceiver().getDndStart();
             String dndEnd = messageDto.getReceiver().getDndEnd();
 
@@ -289,6 +295,13 @@ public class BillingDispatchService {
             }
             LocalTime startDndTime = LocalTime.parse(dndStart);
             LocalTime endDndTime = LocalTime.parse(dndEnd);
+            
+            // 00:00:00 - 00:00:00인 경우 금칙시간이 아님 (유효하지 않은 설정)
+            if (startDndTime.equals(endDndTime) && startDndTime.equals(LocalTime.MIDNIGHT)) {
+                log.debug("[Dispatch] 금칙 시간이 00:00:00-00:00:00로 설정됨. 유효하지 않은 설정으로 간주하여 금칙시간 아님. billingId: {}", billing.getId());
+                return false;
+            }
+            
             LocalTime now = LocalTime.now();
 
             boolean inQuietHours = quietHourService.isDndTime(startDndTime, endDndTime, now);
