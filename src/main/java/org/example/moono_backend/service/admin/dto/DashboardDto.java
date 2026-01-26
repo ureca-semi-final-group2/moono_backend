@@ -23,7 +23,6 @@ public class DashboardDto {
         private long smsConversion;
         private MemberDistribution memberDistribution;
         private SendStatusDistribution sendStatusDistribution;
-        private List<MonthlyTrend> monthlyTrends;
     }
 
     /**
