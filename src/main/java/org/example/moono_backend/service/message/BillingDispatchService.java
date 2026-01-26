@@ -4,8 +4,10 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.example.moono_backend.domain.Billing;
-import org.example.moono_backend.domain.SendStatus;
+
+import org.example.moono_backend.domain.billing.Billing;
+import org.example.moono_backend.domain.billing.BillingId;
+import org.example.moono_backend.domain.billing.SendStatus;
 import org.example.moono_backend.exception.BillingDispatchException;
 import org.example.moono_backend.exception.EmailSendException;
 import org.example.moono_backend.kafka.RawDetailsDto;
@@ -19,6 +21,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
@@ -53,7 +56,10 @@ public class BillingDispatchService {
     private BillingDispatchService self;
 
     public void process(BillingProducerMessageDto messageDto) throws EmailSendException {
+        // Long billingId = messageDto.getHeader().getBillingId();
+
         Long billingId = messageDto.getHeader().getBillingId();
+        LocalDateTime billingDate = messageDto.getHeader().getBillingDate(); // 날짜 정보 추출
         log.info("[Dispatch] 청구서 발송 처리 시작. billingId: {}", billingId);
 
         try {
@@ -66,18 +72,18 @@ public class BillingDispatchService {
                 self.sendEmailAfterTransaction(result.getDispatchDto(), billingId);
                 // 이메일을 보낸 경우에만 성공 처리할 수 있도록 IF 문 안으로 코드 이동
                 // 트랜잭션 2: 이메일 발송 성공 시 COMPLETED로 업데이트
-                self.updateStatusToCompleted(billingId);
+                self.updateStatusToCompleted(billingId, billingDate);
                 log.info("[Dispatch] 청구서 발송 처리 완료. billingId: {}", billingId);
             }
 
         } catch (EmailSendException e) {
             // 트랜잭션 3: 이메일 발송 실패 시 FAILED로 업데이트 후 DLT로 전달
             log.error("[Dispatch] 이메일 발송 실패. FAILED로 업데이트 후 DLT로 전달. billingId: {}", billingId, e);
-            self.updateStatusToFailed(billingId);
+            self.updateStatusToFailed(billingId, billingDate);
             throw e; // DLT로 전달
         } catch (Exception e) {
             log.error("[Dispatch] 청구서 발송 처리 중 예상치 못한 오류. FAILED로 업데이트. billingId: {}", billingId, e);
-            self.updateStatusToFailed(billingId);
+            self.updateStatusToFailed(billingId, billingDate);
             throw EmailSendException.sendFailed(billingId != null ? billingId.toString() : null, e);
         }
     }
@@ -97,13 +103,19 @@ public class BillingDispatchService {
      */
     @Transactional
     public ProcessResult processInternal(BillingProducerMessageDto messageDto) {
+        // Long billingId = messageDto.getHeader().getBillingId();
+
         Long billingId = messageDto.getHeader().getBillingId();
+        LocalDateTime billingDate = messageDto.getHeader().getBillingDate();
         boolean isForced = messageDto.getHeader().isForced();
 
         log.info("[DEBUG] 수신된 isForced: {}, billingId: {}", isForced, billingId);
 
         // 1. Billing 조회 (금칙 시간 체크용)
-        Billing billing = getBillingOrThrow(billingId);
+        // Billing billing = getBillingOrThrow(billingId);
+
+        // 복합키 객체 생성하여 조회
+        Billing billing = getBillingOrThrow(billingId, billingDate);
 
         // 1. 강제 발송인 경우: 모든 상태와 금칙시간을 무시하고 즉시 발송 로직으로 진입
         if (isForced) {
@@ -173,9 +185,10 @@ public class BillingDispatchService {
      * @param billingId 청구서 ID
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void updateStatusToCompleted(Long billingId) {
+    public void updateStatusToCompleted(Long billingId, LocalDateTime billingDate) {
         try {
-            Billing billing = getBillingOrThrow(billingId);
+            // Billing billing = getBillingOrThrow(billingId);
+            Billing billing = getBillingOrThrow(billingId, billingDate);
             billing.completeSend();
             billingRepository.save(billing);
             log.info("[Dispatch] 청구서 상태 업데이트 완료 (SEND_PENDING → COMPLETED). billingId: {}", billingId);
@@ -193,9 +206,10 @@ public class BillingDispatchService {
      * @param billingId 청구서 ID
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void updateStatusToFailed(Long billingId) {
+    public void updateStatusToFailed(Long billingId, LocalDateTime billingDate) {
         try {
-            Billing billing = getBillingOrThrow(billingId);
+            // Billing billing = getBillingOrThrow(billingId);
+            Billing billing = getBillingOrThrow(billingId, billingDate);
             billing.markAsFailed();
             billingRepository.save(billing);
             log.info("[Dispatch] 청구서 상태 업데이트 완료 (SEND_PENDING → FAILED). billingId: {}", billingId);
@@ -234,11 +248,20 @@ public class BillingDispatchService {
         }
     }
 
+    // /**
+    // * Billing 조회 또는 예외 발생
+    // */
+    // private Billing getBillingOrThrow(Long billingId) {
+    // return billingRepository.findById(billingId)
+    // .orElseThrow(() -> BillingDispatchException.billingNotFound(
+    // billingId != null ? billingId.toString() : null));
+    // }
+
     /**
-     * Billing 조회 또는 예외 발생
+     * 조회 시 BillingId 복합키 사용하도록 수정
      */
-    private Billing getBillingOrThrow(Long billingId) {
-        return billingRepository.findById(billingId)
+    private Billing getBillingOrThrow(Long billingId, LocalDateTime billingDate) {
+        return billingRepository.findById(new BillingId(billingId, billingDate))
                 .orElseThrow(() -> BillingDispatchException.billingNotFound(
                         billingId != null ? billingId.toString() : null));
     }
@@ -324,15 +347,15 @@ public class BillingDispatchService {
         }
     }
 
-    /**
-     * BillingProducerMessageDto를 BillingConsumerMessageDto로 변환
-     * 
-     * EmailService가 요구하는 BillingConsumerMessageDto 형식으로 변환합니다.
-     */
-    private BillingConsumerMessageDto convertToBillingDispatchDto(
-            BillingProducerMessageDto messageDto, RawDetailsDto rawDetails) {
+    // /**
+    // * BillingProducerMessageDto를 BillingConsumerMessageDto로 변환
+    // *
+    // * EmailService가 요구하는 BillingConsumerMessageDto 형식으로 변환합니다.
+    // */
+    // private BillingConsumerMessageDto convertToBillingDispatchDto(
+    // BillingProducerMessageDto messageDto, RawDetailsDto rawDetails) {
 
-        return forceBillingMapper.toConsumerDtoFromProducer(messageDto, rawDetails);
-    }
+    // return forceBillingMapper.toConsumerDtoFromProducer(messageDto, rawDetails);
+    // }
 
 }

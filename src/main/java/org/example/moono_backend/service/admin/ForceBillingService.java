@@ -2,8 +2,10 @@ package org.example.moono_backend.service.admin;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.example.moono_backend.domain.Billing;
-import org.example.moono_backend.domain.SendStatus;
+
+import org.example.moono_backend.domain.billing.Billing;
+import org.example.moono_backend.domain.billing.BillingId;
+import org.example.moono_backend.domain.billing.SendStatus;
 import org.example.moono_backend.domain.member.MemberCredential;
 import org.example.moono_backend.domain.member.UserDndPolicy;
 import org.example.moono_backend.dto.ForceBillingDto;
@@ -73,8 +75,12 @@ public class ForceBillingService {
      * 2. HTML 미리보기 조회
      */
     @Transactional(readOnly = true)
-    public ForceBillingDto.PreviewResponse getPreview(Long billingId) {
-        Billing billing = billingRepository.findById(billingId)
+    public ForceBillingDto.PreviewResponse getPreview(Long billingId, Integer year, Integer month) {
+
+        LocalDateTime date = LocalDateTime.of(year, month, 1, 0, 0);
+        BillingId compositedId = new BillingId(billingId, date);
+
+        Billing billing = billingRepository.findById(compositedId)
                 .orElseThrow(() -> new IllegalArgumentException("청구서 없음"));
         MemberCredential member = memberRepository.findByPublicInfoId(billing.getPublicInfoId())
                 .orElseThrow(() -> new IllegalArgumentException("회원 정보 없음"));
@@ -96,7 +102,7 @@ public class ForceBillingService {
         }
 
         return ForceBillingDto.PreviewResponse.builder()
-                .billingId(billing.getId())
+                .billingId(billing.getId().getId()) // 복합키에서 숫자 ID만 추출
                 .userName(consumerDto.getReceiver().getName())
                 .userEmail(consumerDto.getReceiver().getEmail())
                 .billingMonth(consumerDto.getHeader().getBillingMonth())
@@ -110,9 +116,12 @@ public class ForceBillingService {
      * 3. 강제 발송 요청
      */
     @Transactional
-    public ForceBillingDto.ResendResponse resendBilling(Long billingId, String reason) {
+    public ForceBillingDto.ResendResponse resendBilling(Long billingId, Integer year, Integer month, String reason) {
 
-        Billing billing = billingRepository.findById(billingId)
+        LocalDateTime date = LocalDateTime.of(year, month, 1, 0, 0);
+        BillingId compositeId = new BillingId(billingId, date);
+
+        Billing billing = billingRepository.findById(compositeId)
                 .orElseThrow(() -> new IllegalArgumentException("청구서 없음"));
 
         if (billing.getSendStatus() == SendStatus.SEND_PENDING) {
@@ -147,7 +156,8 @@ public class ForceBillingService {
         return ForceBillingDto.ResendResponse.builder()
                 .success(true)
                 .message("발송 요청이 정상적으로 접수되었습니다.")
-                .billingId(billing.getId())
+                // .billingId(billing.getId())
+                .billingId(billing.getId().getId()) // 복합키에서 숫자 ID만 추출
                 .build();
 
     }

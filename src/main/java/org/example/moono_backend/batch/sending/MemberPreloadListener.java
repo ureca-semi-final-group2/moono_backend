@@ -2,7 +2,7 @@ package org.example.moono_backend.batch.sending;
 
 import java.util.List;
 
-import org.example.moono_backend.domain.Billing;
+import org.example.moono_backend.domain.billing.Billing;
 import org.example.moono_backend.dto.BatchBillingDto;
 import org.example.moono_backend.repository.MemberCredentialRepository;
 import org.example.moono_backend.repository.UserDndPolicyRepository;

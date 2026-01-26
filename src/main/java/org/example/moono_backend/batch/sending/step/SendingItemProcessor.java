@@ -6,7 +6,7 @@ import java.util.Optional;
 import org.example.moono_backend.batch.BatchMetrics;
 import org.example.moono_backend.batch.sending.MemberPreloadListener;
 import org.example.moono_backend.batch.sending.PreloadHolder;
-import org.example.moono_backend.domain.Billing;
+import org.example.moono_backend.domain.billing.Billing;
 import org.example.moono_backend.domain.member.MemberCredential;
 import org.example.moono_backend.domain.member.UserDndPolicy;
 import org.example.moono_backend.dto.BatchBillingDto;

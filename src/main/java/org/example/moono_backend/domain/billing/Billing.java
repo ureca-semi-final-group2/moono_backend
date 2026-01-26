@@ -1,9 +1,10 @@
-package org.example.moono_backend.domain;
+package org.example.moono_backend.domain.billing;
 
 import jakarta.persistence.*;
 
 import java.time.LocalDateTime;
 
+import org.example.moono_backend.domain.PayStatus;
 import org.example.moono_backend.domain.member.MemberCredential;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
@@ -20,8 +21,8 @@ import lombok.*;
 @Getter
 public class Billing {
 
-    @Id
-    private Long id;
+    @EmbeddedId
+    private BillingId id;
 
     private String publicInfoId;
 
@@ -35,8 +36,9 @@ public class Billing {
     @Enumerated(EnumType.STRING)
     private SendStatus sendStatus;
 
-    private LocalDateTime billingDate; // UserDndPolicy의 sendDay(15 or 21)를 참조하여 이번 달의 정확한 날짜를 계산
-                                       // ex) 2025-01 + 15 = "2025-01-15"
+    // private LocalDateTime billingDate; // UserDndPolicy의 sendDay(15 or 21)를 참조하여
+    // 이번 달의 정확한 날짜를 계산
+    // ex) 2025-01 + 15 = "2025-01-15"
 
     private LocalDateTime paidDate;
 

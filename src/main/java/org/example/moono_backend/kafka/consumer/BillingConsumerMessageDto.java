@@ -1,6 +1,8 @@
 package org.example.moono_backend.kafka.consumer;
 
 import lombok.Data;
+
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Data
@@ -13,6 +15,7 @@ public class BillingConsumerMessageDto {
     @Data
     public static class Header {
         private Long billingId;
+        private LocalDateTime billingDate;
         private Long userId;
         private String billingMonth;
         private int dispatchDay;

@@ -1,6 +1,8 @@
 package org.example.moono_backend.kafka.producer;
 
-import org.example.moono_backend.domain.Billing;
+import java.time.LocalDateTime;
+
+import org.example.moono_backend.domain.billing.Billing;
 import org.example.moono_backend.domain.member.MemberCredential;
 import org.example.moono_backend.domain.member.UserDndPolicy;
 import org.example.moono_backend.dto.BatchBillingDto;
@@ -34,8 +36,12 @@ public class BillingProducerMessageDto {
     @AllArgsConstructor
     public static class Header {
         private String publicInfoId;
+
         private Long billingId; // 정합성 및 멱등성 체크용 ID
         private String billingMonth; // 청구 월 (예: "2026-01")
+
+        // [추가] 파티션 조회를 위해 날짜 필드 추가
+        private LocalDateTime billingDate;
 
         @JsonProperty("isForced")
         private boolean isForced; // DND 무시 여부 (강제 발송 시)
@@ -76,6 +82,7 @@ public class BillingProducerMessageDto {
         return BillingProducerMessageDto.builder()
                 .header(Header.builder()
                         .publicInfoId(billing.publicInfoId()) // 정합성 체크용
+                        .billingDate(billing.billingDate())
                         .billingId(billing.id())
                         .billingMonth(billing.billingDate().toString())
                         .isForced(isForced) // DND 무시 여부 추가
