@@ -50,20 +50,27 @@ public class ForceBillingController {
     }
 
     // 2. 청구 내역서 미리 보기
+    // 특정 파티션 조회를 위해 year, month 쿼리 파라미터를 추가로 받습니다.
     @GetMapping("/{billingId}/preview")
-    public ResponseEntity<ForceBillingDto.PreviewResponse> getPreview(@PathVariable Long billingId) {
-        var response = forceBillingService.getPreview(billingId);
+    public ResponseEntity<ForceBillingDto.PreviewResponse> getPreview(
+            @PathVariable Long billingId,
+            @RequestParam Integer year,
+            @RequestParam Integer month) {
+        // 서비스 호출 시 날짜 정보를 함께 전달
+        var response = forceBillingService.getPreview(billingId, year, month);
         return ResponseEntity.ok(response);
     }
 
     // 3. 강제 발송 요청
+    // 복합키 구성을 위해 year, month를 추가로 받습니다.
     @PostMapping("/{billingId}/resend")
     public ResponseEntity<ForceBillingDto.ResendResponse> resend(
             @PathVariable Long billingId,
-            @RequestBody ForceBillingDto.ResendRequest request // JSON Body 파싱
-    ) {
-        var response = forceBillingService.resendBilling(billingId, request.getReason());
+            @RequestParam Integer year,
+            @RequestParam Integer month,
+            @RequestBody ForceBillingDto.ResendRequest request) {
+        // 서비스 호출 시 날짜 정보를 함께 전달
+        var response = forceBillingService.resendBilling(billingId, year, month, request.getReason());
         return ResponseEntity.ok(response);
     }
-
 }

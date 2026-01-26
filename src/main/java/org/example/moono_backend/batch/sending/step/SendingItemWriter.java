@@ -1,9 +1,10 @@
 package org.example.moono_backend.batch.sending.step;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 import org.example.moono_backend.batch.BatchMetrics;
-import org.example.moono_backend.domain.SendStatus;
+import org.example.moono_backend.domain.billing.SendStatus;
 import org.example.moono_backend.kafka.producer.BillingProducerMessageDto;
 import org.example.moono_backend.repository.BillingRepository;
 import org.springframework.batch.item.Chunk;
@@ -43,14 +44,29 @@ public class SendingItemWriter implements ItemWriter<BillingProducerMessageDto> 
     @Override
     @Transactional
     public void write(Chunk<? extends BillingProducerMessageDto> chunk) throws Exception {
+        if (chunk.isEmpty())
+            return; // 빈 청크 방지
+
         long startTime = System.nanoTime();
 
         List<Long> billing_ids = chunk.getItems().stream()
                 .map(dto -> dto.getHeader().getBillingId())
                 .toList();
 
-        // 일단 먼저 SEND_PENDING 으로 업데이트
-        billingRepository.updateStatusInBatch(billing_ids, SendStatus.SEND_PENDING);
+        // 파티션 키(billingDate) 추출 및 범위 계산
+        LocalDateTime billingDate = chunk.getItems().get(0).getHeader().getBillingDate();
+
+        if (billingDate == null) {
+            log.error("🚨 [CRITICAL] BillingDate가 누락되었습니다. ID 리스트: {}", billing_ids);
+            throw new IllegalStateException("Partition key (billingDate) cannot be null");
+        }
+        LocalDateTime start = billingDate.withDayOfMonth(1).withHour(0).withMinute(0).withSecond(0);
+        LocalDateTime end = start.plusMonths(1).minusNanos(1
+
+        );
+
+        // 3. 수정된 Repository 메서드 호출 (ID리스트 + 시작일 + 종료일 + 상태)
+        billingRepository.updateStatusInBatch(billing_ids, start, end, SendStatus.SEND_PENDING);
 
         try {
             for (BillingProducerMessageDto messageDto : chunk.getItems()) {

@@ -1,4 +1,4 @@
-package org.example.moono_backend.domain;
+package org.example.moono_backend.domain.billing;
 
 public enum SendStatus {
     // 1. 정산 단계
