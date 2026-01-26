@@ -35,6 +35,7 @@ public class KafkaTestController {
      */
     @GetMapping("/send-batch")
     public String sendBatch(
+            @RequestParam(value = "day", defaultValue = "15") Long targetDay,
             @RequestParam(value = "date", defaultValue = "2026-01-01") String date) {
         try {
             // 입력받은 날짜(yyyy-MM-dd) 뒤에 시간 포맷을 붙여줌
@@ -44,7 +45,7 @@ public class KafkaTestController {
                     .addLong("time", System.currentTimeMillis())
                     .addString("targetStatus", "CREATED")
                     .addString("targetDate", formattedDate) // 동적으로 받은 날짜 적용
-                    .addLong("targetDay", 15L) // 기본값 15일
+                    .addLong("targetDay", targetDay) // 기본값 15일
                     .addString("isForced", "false")
                     .toJobParameters();
 
