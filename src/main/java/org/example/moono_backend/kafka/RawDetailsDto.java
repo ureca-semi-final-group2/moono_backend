@@ -16,13 +16,14 @@ import java.util.List;
  */
 @Data
 public class RawDetailsDto {
+    private int baseFee;
     private List<OverageItem> overages; // 과금 내역
     private List<DiscountItem> discounts; // 할인 내역
 
     @Data
     public static class OverageItem {
-        @JsonProperty("type")
-        private String type; // "data", "voice", "sms"
+        @JsonProperty("name")
+        private String name; // "data", "voice", "sms"
 
         @JsonProperty("amount")
         private long amount;
@@ -30,8 +31,8 @@ public class RawDetailsDto {
 
     @Data
     public static class DiscountItem {
-        @JsonProperty("type")
-        private String type; // "select_contract", "event" 등등
+        @JsonProperty("name")
+        private String name; // "select_contract", "event" 등등
         @JsonProperty("amount")
         private long amount;
     }

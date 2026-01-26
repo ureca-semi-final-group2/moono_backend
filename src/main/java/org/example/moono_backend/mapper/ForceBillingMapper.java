@@ -180,7 +180,7 @@ public class ForceBillingMapper {
             return Collections.emptyList();
         return items.stream().map(item -> {
             BillingConsumerMessageDto.AdditionalServiceItem converted = new BillingConsumerMessageDto.AdditionalServiceItem();
-            converted.setName(typeConverter.convertTypeName(item.getType()));
+            converted.setName(typeConverter.convertTypeName(item.getName()));
             converted.setPrice(item.getAmount());
             return converted;
         }).collect(Collectors.toList());
@@ -192,7 +192,7 @@ public class ForceBillingMapper {
             return Collections.emptyList();
         return items.stream().map(item -> {
             BillingConsumerMessageDto.DiscountItem converted = new BillingConsumerMessageDto.DiscountItem();
-            converted.setName(typeConverter.convertTypeName(item.getType()));
+            converted.setName(typeConverter.convertTypeName(item.getName()));
             converted.setAmount(item.getAmount());
             return converted;
         }).collect(Collectors.toList());
