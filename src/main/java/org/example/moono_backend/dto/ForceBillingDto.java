@@ -2,6 +2,9 @@ package org.example.moono_backend.dto;
 
 import java.time.LocalDateTime;
 
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
+
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -15,6 +18,7 @@ public class ForceBillingDto {
     @AllArgsConstructor
     @NoArgsConstructor
     public static class ListItem {
+        @JsonSerialize(using = ToStringSerializer.class)
         private Long billingId;
         private String publicInfoId;
         private String userName;
@@ -31,6 +35,7 @@ public class ForceBillingDto {
     @AllArgsConstructor
     @NoArgsConstructor
     public static class PreviewResponse {
+        @JsonSerialize(using = ToStringSerializer.class)
         private Long billingId;
         private String userName;
         private String userEmail;
@@ -56,6 +61,7 @@ public class ForceBillingDto {
     public static class ResendResponse {
         private boolean success;
         private String message;
+        @JsonSerialize(using = ToStringSerializer.class)
         private Long billingId;
         private LocalDateTime requestedAt;
     }
