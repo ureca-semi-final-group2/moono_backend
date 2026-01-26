@@ -130,6 +130,7 @@ public class ForceBillingMapper {
         BillingConsumerMessageDto.BillingSummary summary = new BillingConsumerMessageDto.BillingSummary();
         summary.setTotalAmount(billing.getBillingFee());
         summary.setDueDate(billingDate.plusDays(15).toString()); // [수정]
+        summary.setBaseFee(rawDetails.getBaseFee());
         dto.setBillingSummary(summary);
 
         // Details
@@ -153,6 +154,7 @@ public class ForceBillingMapper {
         BillingConsumerMessageDto.BillingSummary summary = new BillingConsumerMessageDto.BillingSummary();
         summary.setTotalAmount(producerDto.getBillingSummary().getTotalAmount());
         summary.setDueDate(producerDto.getBillingSummary().getDueDate());
+        summary.setBaseFee(rawDetails.getBaseFee());
         dto.setBillingSummary(summary);
 
         BillingConsumerMessageDto.Details details = new BillingConsumerMessageDto.Details();

@@ -69,6 +69,7 @@ public class ForceBillingService {
             MemberCredential member = memberMap.get(billing.getPublicInfoId());
             return mapper.toListItem(billing, member);
         });
+
     }
 
     /**
