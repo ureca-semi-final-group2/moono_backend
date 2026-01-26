@@ -42,7 +42,7 @@ public class KafkaConfig {
 
         private static final String BILLING_EMAIL_SEND_TOPIC = "queuing.billing.email.send";
         private static final String BILLING_EMAIL_SEND_DLT_TOPIC = "queuing.billing.email.send.dlt";
-        private static final int PARTITION_COUNT = 6; // 파티션 개수
+        private static final int PARTITION_COUNT = 3; // 파티션 개수
         private static final short REPLICATION_FACTOR = 1; // 복제본 개수 (개발 환경)
 
         // 비동기 처리를 위한 리스너 팩토리 설정
