@@ -119,19 +119,18 @@ public class BillingDispatchService {
 
         // 1. 강제 발송인 경우: 모든 상태와 금칙시간을 무시하고 즉시 발송 로직으로 진입
         if (isForced) {
-            log.info("[Dispatch] ★강제 발송 요청★ 상태와 상관없이 발송을 진행합니다. billingId: {}", billingId);
-            // 강제 발송일 때는 아래의 체크 로직들을 모두 건너뛰고 바로 mapping 로직(4번)으로 갑니다.
+            log.info("[Dispatch] ★강제 발송 요청★ 발송을 진행합니다. billingId: {}", billingId);
+
+            // 이미 발송 중(배치 처리 중)인 경우 스킵
+            if (billing.getSendStatus() == SendStatus.SEND_PENDING) {
+                log.warn("[Dispatch] 강제 발송: 현재 배치 작업 중입니다. 중복 방지를 위해 스킵합니다. billingId: {}", billingId);
+                return ProcessResult.skip();
+            }
         } else {
             // 2. 일반 발송(배치 등)인 경우에만 체크 로직 수행
             // 이미 발송 완료된 경우 스킵
             if (billing.getSendStatus() == SendStatus.COMPLETED) {
                 log.info("[Dispatch] 일반 발송: 이미 완료된 건입니다. 스킵합니다. billingId: {}", billingId);
-                return ProcessResult.skip();
-            }
-
-            // 이미 발송 중(배치 처리 중)인 경우 스킵
-            if (billing.getSendStatus() == SendStatus.SEND_PENDING) {
-                log.warn("[Dispatch] 일반 발송: 현재 배치 작업 중입니다. 중복 방지를 위해 스킵합니다. billingId: {}", billingId);
                 return ProcessResult.skip();
             }
 

@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.time.YearMonth;
+import java.util.ArrayList;
 
 @Service
 @RequiredArgsConstructor
@@ -20,15 +21,19 @@ public class DashboardService {
         private final BillingRepository billingRepository;
         private final UserDndPolicyRepository userDndPolicyRepository;
 
-        public DashboardDto.MetricsResponse getMetrics() {
+        public DashboardDto.MetricsResponse getMetrics(Integer year, Integer month) {
+
+                // 1. 파라미터가 있으면 해당 월, 없으면 현재 월(now)을 기준으로 설정
+                YearMonth targetMonth = (year != null && month != null)
+                                ? YearMonth.of(year, month)
+                                : YearMonth.now();
+
+                // 2. 해당 월의 시작일과 종료일 계산
+                LocalDateTime startOfMonth = targetMonth.atDay(1).atStartOfDay();
+                LocalDateTime endOfMonth = targetMonth.atEndOfMonth().atTime(23, 59, 59);
+
                 // 총 회원 수
                 long totalMembers = memberCredentialRepository.count();
-
-                // 이번 달 시작/끝
-                LocalDateTime startOfMonth = YearMonth.now()
-                                .atDay(1).atStartOfDay();
-                LocalDateTime endOfMonth = YearMonth.now()
-                                .atEndOfMonth().atTime(23, 59, 59);
 
                 // 이번 달 발송 완료 (COMPLETED)
                 long monthlyBillSent = billingRepository
