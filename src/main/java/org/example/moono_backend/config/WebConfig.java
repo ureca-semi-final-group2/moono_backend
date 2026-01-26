@@ -21,7 +21,8 @@ import java.util.List;
 @Setter
 public class WebConfig implements WebMvcConfigurer {
 
-    private List<String> allowedOrigins = List.of("http://localhost:5173", "http://localhost:5174");
+    private List<String> allowedOrigins = List.of("http://localhost:5173", "http://localhost:5174",
+            "https://moono-frontend.vercel.app");
 
     @Override
     public void addCorsMappings(CorsRegistry registry) {
